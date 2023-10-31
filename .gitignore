@@ -1,0 +1,5 @@
+*.ece-4750-setup
+*asm
+*Makefile
+*verilator.cpp
+*tinyrv2_encoding_assembler.py
