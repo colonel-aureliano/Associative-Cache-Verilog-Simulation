@@ -237,7 +237,7 @@ module lab3_cache_CacheMemSender_Control
                 end
                 else state_next = STATE_IDLE;
             end
-            STATE_CALC: if ( !ostream_rdy ) state_next = STATE_CALC; else state_next = STATE_SEND; 
+            STATE_CALC: if ( !ostream_rdy ) state_next = STATE_WAIT; else state_next = STATE_SEND; 
             STATE_SEND: begin 
                 if ( ostream_rdy && ostream_val && counter < 16) begin 
                     state_next = STATE_CALC;
