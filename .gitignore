@@ -3,3 +3,5 @@
 *Makefile
 *verilator.cpp
 *tinyrv2_encoding_assembler.py
+*obj_dir
+*waves
