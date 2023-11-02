@@ -46,25 +46,42 @@ module top(  input logic clk, input logic linetrace );
         $display("Start of Testbench");
         // Initalize all the signal inital values.
         reset = 1; 
-        istream_rdy = 0; 
-        ostream_val = 0; 
-        inp_addr = 32'hFFFFFFFF; 
+        istream_val = 0; 
+        ostream_rdy = 0; 
+        inp_addr = 32'hFFFFFFC0; 
         inp_data = {32'd1, 32'd2,  32'd3, 32'd4, 32'd5, 32'd6, 32'd7, 32'd8, 32'd9, 32'd10, 32'd11, 32'd12, 32'd13, 32'd14, 32'd15, 32'd16}; 
-        @(negedge clk) 
+        $display("beginning: istream val is %d", DUT.ctrl.istream_val);
+        $display("beginning: istream rdy is %d", DUT.ctrl.istream_rdy);
+
+        @(negedge clk);
         reset = 0; 
-        istream_rdy = 1; 
+        istream_val = 1; 
+        $display("beginning: istream val is %d", DUT.ctrl.istream_val);
+        $display("beginning: istream rdy is %d", DUT.ctrl.istream_rdy);
 
+        // @(negedge clk)
         for(integer i = 0; i < 16; i++) begin 
-            
-            istream_rdy = 1; 
-            while ( !ostream_val ) @(negedge clk) 
-            
+            $display("in for loop: %d", i);
+            // istream_rdy = 0;
+            ostream_rdy = 1;  
+            @(negedge clk);
+            while ( !ostream_val ) begin 
+                @(negedge clk);
+                $display("in while: state is %d", DUT.ctrl.state_reg);
+                $display("in while: next state is %d", DUT.ctrl.state_next);
+                $display("in while: istream val is %d", DUT.ctrl.istream_val);
+                $display("in while: istream rdy is %d", DUT.ctrl.istream_rdy);
+            end
+        
 
-            ostream_rdy = 1; 
-            assertion("addr:", inp_addr&32'hFFFFFFC0 + i * 32, mem_addr);
+            assertion("addr:", inp_addr + i * 4, mem_addr);
             expected = inp_data>>(i*32);
-            assertion("indexing: ", expected[31:0], mem_data); 
+            assertion("data: ", expected[31:0], mem_data); 
+            ostream_rdy = 0;
+            @(negedge clk);
         end
+
+        $finish();
 
     end
   
