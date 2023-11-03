@@ -11,6 +11,7 @@
 `include "vc/regs.v"
 `include "vc/regfiles.v"
 `include "CacheMemSender.v" 
+`include "CacheMemReceiver.v" 
 
 
 module lab3_cache_CacheBaseDpath
@@ -39,14 +40,21 @@ module lab3_cache_CacheBaseDpath
 
 
     // batch send request to memory: 
-    input  logic [31:0] batch_send_istream_val; 
-    output logic [31:0] batch_send_istream_rdy; 
-    output logic [31:0] batch_send_ostream_val; 
-    input  logic [31:0] batch_send_ostream_rdy; 
+    input  logic        batch_send_istream_val; 
+    output logic        batch_send_istream_rdy; 
+    output logic        batch_send_ostream_val; 
+    input  logic        batch_send_ostream_rdy; 
     
     output logic [31:0] send_mem_addr; 
     output logic [31:0] send_mem_data;
 
+    // batch receive request from memory: 
+    input  logic        batch_receive_istream_val; 
+    output logic        batch_receive_istream_rdy; 
+    input  logic        batch_receive_ostream_rdy; 
+    output logic        batch_receive_ostream_val; 
+
+    input  logic [31:0] batch_receive_data; 
     //darray write M0 
     input  logic        darray_write_mux_sel;
 
@@ -233,7 +241,22 @@ module lab3_cache_CacheBaseDpath
     repl_unit_out = {16{req_data0}}; 
     
     // batch receiver
-    logic [511:0] from_mem_data; // TODO: batch receiver into dpath
+    logic [511:0] from_mem_data; 
+
+    lab3_cache_CacheMemReceiver batch_receiver 
+    (
+        .clk (clk), 
+        .reset (reset), 
+
+        .istream_val (batch_receive_istream_val), 
+        .istream_rdy (batch_receive_istream_rdy), 
+        .cache_resp_msg (batch_receive_data), 
+    
+        .ostream_val (batch_receive_ostream_val), 
+        .ostream_rdy (batch_receive_ostream_rdy), 
+
+        .mem_data (from_mem_data)
+    )
 
     
     logic [511:0] darray_write_mux_out; 
@@ -313,14 +336,14 @@ module lab3_cache_CacheBaseDpath
     logic [31:0] cache_line_lower;
     vc_Mux8#(32) cache_result_mux_lower 
     (
-        .in0 (darray_rdata_1[0 << 5 + 31 : 0 << 5]),
-        .in1 (darray_rdata_1[1 << 5 + 31 : 1 << 5]),
-        .in2 (darray_rdata_1[2 << 5 + 31 : 2 << 5]),
-        .in3 (darray_rdata_1[3 << 5 + 31 : 3 << 5]),
-        .in4 (darray_rdata_1[4 << 5 + 31 : 4 << 5]),
-        .in5 (darray_rdata_1[5 << 5 + 31 : 5 << 5]),
-        .in6 (darray_rdata_1[6 << 5 + 31 : 6 << 5]),
-        .in7 (darray_rdata_1[7 << 5 + 31 : 7 << 5]),
+        .in0 (darray_rdata_1[31 :  0]),
+        .in1 (darray_rdata_1[63 :  32]),
+        .in2 (darray_rdata_1[95 :  64]),
+        .in3 (darray_rdata_1[127 :  96]),
+        .in4 (darray_rdata_1[159 :  128]),
+        .in5 (darray_rdata_1[191 :  160]),
+        .in6 (darray_rdata_1[223 :  192]),
+        .in7 (darray_rdata_1[255 :  224]),
         .sel (offset1[2:0]),
         .out (cache_line_lower)
     );
@@ -328,14 +351,14 @@ module lab3_cache_CacheBaseDpath
     logic [31:0] cache_line_upper;
     vc_Mux8#(32) cache_result_mux_upper
     (
-        .in0 (darray_rdata_1[ 8 << 5 + 31 : 8 << 5]),
-        .in1 (darray_rdata_1[ 9 << 5 + 31 : 9 << 5]),
-        .in2 (darray_rdata_1[10 << 5 + 31 : 10 << 5]),
-        .in3 (darray_rdata_1[11 << 5 + 31 : 11 << 5]),
-        .in4 (darray_rdata_1[12 << 5 + 31 : 12 << 5]),
-        .in5 (darray_rdata_1[13 << 5 + 31 : 13 << 5]),
-        .in6 (darray_rdata_1[14 << 5 + 31 : 14 << 5]),
-        .in7 (darray_rdata_1[15 << 5 + 31 : 15 << 5]),
+        .in0 (darray_rdata_1[287 :  256]),
+        .in1 (darray_rdata_1[319 :  288]),
+        .in2 (darray_rdata_1[351 :  320]),
+        .in3 (darray_rdata_1[383 :  352]),
+        .in4 (darray_rdata_1[415 :  384]),
+        .in5 (darray_rdata_1[447 :  416]),
+        .in6 (darray_rdata_1[479 :  448]),
+        .in7 (darray_rdata_1[511 :  480]),
         .sel (offset1[2:0]), 
         .out (cache_line_upper)
     );
