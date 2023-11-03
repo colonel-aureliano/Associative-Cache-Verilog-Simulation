@@ -12,6 +12,7 @@
 `include "vc/regfiles.v"
 `include "CacheMemSender.v" 
 `include "CacheMemReceiver.v" 
+`include "DataArray.v"
 
 
 module lab3_cache_CacheBaseDpath
@@ -126,7 +127,10 @@ module lab3_cache_CacheBaseDpath
     // logic         darray_wen_0; 
     logic [511:0] darray_wdata_1; 
 
-    vc_ResetRegfile_2r2w #(512, 6) data_array
+    localparam write_word_en_all = 16'hFFFF
+    logic [ 15:0] darray_wdata_word_en_1; 
+
+    DataArray data_array
     (
         .clk          (clk),
         .reset        (reset),
@@ -140,10 +144,13 @@ module lab3_cache_CacheBaseDpath
         .write_en0   (darray_wen_0),
         .write_addr0 (index0),
         .write_data0 (darray_wdata_0),
+        .write_word_en_0 (write_word_en_all)
 
         .write_en1   (darray_wen_1),
         .write_addr1 (index1),
         .write_data1 (darray_wdata_1)
+        .write_word_en_0 (darray_wdata_word_en_1)
+
     );
 
 
@@ -320,15 +327,14 @@ module lab3_cache_CacheBaseDpath
     assign index1   = req_addr1[10:6]; 
     assign offset1  = req_addr1[5:2]; 
     
-
-    localparam selectall = 4'b1111; 
-    // TODO: IMPLEMENT THIS IN NEW DARRAY
+    logic [15:0] word_en_one_hot; 
+    assign word_en_one_hot = 1 << offset1; 
     vc_Mux2#(4) write_word_en_mux 
     (
-        .in0  (selectall),
-        .in1  (offset1),
+        .in0  (write_word_en_all),
+        .in1  (word_en_one_hot),
         .sel  (word_en_sel),
-        .out  ()
+        .out  (darray_wdata_word_en_1)
     ); 
 
     
