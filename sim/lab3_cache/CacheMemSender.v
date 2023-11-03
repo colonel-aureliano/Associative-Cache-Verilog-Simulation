@@ -1,5 +1,5 @@
 //=========================================================================
-// Staged Pipeline Cache: Direct Mapped Write Back Write Allocate
+// Cache Memory Sender 512B module
 //=========================================================================
 
 `ifndef LAB3_CACHE_CACHE_MEM_SENDER_V
@@ -87,22 +87,22 @@ module lab3_cache_CacheMemSender_Dpath
     assign offset = inp_addr[5:0]; 
 
     logic [ 31:0] segmented_data [15:0]; 
-    assign segmented_data[0]  = inp_data[ 0<<32+31 :  0 << 32]; 
-    assign segmented_data[1]  = inp_data[ 1<<32+31 :  1 << 32]; 
-    assign segmented_data[2]  = inp_data[ 2<<32+31 :  2 << 32]; 
-    assign segmented_data[3]  = inp_data[ 3<<32+31 :  3 << 32]; 
-    assign segmented_data[4]  = inp_data[ 4<<32+31 :  4 << 32]; 
-    assign segmented_data[5]  = inp_data[ 5<<32+31 :  5 << 32]; 
-    assign segmented_data[6]  = inp_data[ 6<<32+31 :  6 << 32]; 
-    assign segmented_data[7]  = inp_data[ 7<<32+31 :  7 << 32]; 
-    assign segmented_data[8]  = inp_data[ 8<<32+31 :  8 << 32]; 
-    assign segmented_data[9]  = inp_data[ 9<<32+31 :  9 << 32]; 
-    assign segmented_data[10] = inp_data[10<<32+31 : 10 << 32]; 
-    assign segmented_data[11] = inp_data[11<<32+31 : 11 << 32]; 
-    assign segmented_data[12] = inp_data[12<<32+31 : 12 << 32]; 
-    assign segmented_data[13] = inp_data[13<<32+31 : 13 << 32]; 
-    assign segmented_data[14] = inp_data[14<<32+31 : 14 << 32]; 
-    assign segmented_data[15] = inp_data[15<<32+31 : 15 << 32]; 
+    assign segmented_data[0]  = inp_data[ 31 :  0]; 
+    assign segmented_data[1]  = inp_data[ 63 :  32]; 
+    assign segmented_data[2]  = inp_data[ 95 :  64]; 
+    assign segmented_data[3]  = inp_data[ 127 :  96]; 
+    assign segmented_data[4]  = inp_data[ 159 :  128]; 
+    assign segmented_data[5]  = inp_data[ 191 :  160]; 
+    assign segmented_data[6]  = inp_data[ 223 :  192]; 
+    assign segmented_data[7]  = inp_data[ 255 :  224]; 
+    assign segmented_data[8]  = inp_data[ 287 :  256]; 
+    assign segmented_data[9]  = inp_data[ 319 :  288]; 
+    assign segmented_data[10] = inp_data[ 351 :  320]; 
+    assign segmented_data[11] = inp_data[ 383 :  352]; 
+    assign segmented_data[12] = inp_data[ 415 :  384]; 
+    assign segmented_data[13] = inp_data[ 447 :  416]; 
+    assign segmented_data[14] = inp_data[ 479 :  448]; 
+    assign segmented_data[15] = inp_data[ 511 :  480]; 
 
     //=======================================================================
     //                      increment addr by 4 each cycle
@@ -298,4 +298,4 @@ module lab3_cache_CacheMemSender_Control
 
 endmodule
 
-`endif /* LAB2_PROC_PROC_BASE_DPATH_V */
+`endif /* LAB3_CACHE_CACHE_MEM_SENDER_V */

@@ -1,7 +1,7 @@
 //========================================================================
-// utb_ProcBaseDpath
+// utb_CacheMemSender
 //========================================================================
-// A basic Verilog unit test bench for the Processor Base Datapath module
+// A basic Verilog unit test bench for the Cache Memory Sender module
 
 `default_nettype none
 `timescale 1ps/1ps
