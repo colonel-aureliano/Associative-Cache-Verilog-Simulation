@@ -22,6 +22,7 @@ module lab3_cache_CacheBaseDpath
     input  logic        reset,
     //definition of inputs and outputs 
     
+    // interface
     input  mem_req_4B_t cache_req_msg,
 
     // ------ M0 stage ----------

@@ -6,6 +6,8 @@
 `define LAB3_CACHE_CACHE_BASE_V
 
 `include "vc/mem-msgs.v"
+`include "CacheBaseDpath.v"
+`include "CacheBaseCtrl.v"
 
 module lab3_cache_CacheBase
 (
@@ -38,15 +40,34 @@ module lab3_cache_CacheBase
   output logic                    flush_done
 );
 
-assign cache_req_val = memreq_val;
-assign memreq_rdy = cache_req_rdy;
-assign cache_req_msg = memreq_msg;
+  // assign cache_req_val = memreq_val;
+  // assign memreq_rdy = cache_req_rdy;
+  // assign cache_req_msg = memreq_msg;
 
-assign memresp_val = cache_resp_val;
-assign cache_resp_rdy = memresp_rdy;
-assign memresp_msg = cache_resp_msg;
+  // assign memresp_val = cache_resp_val;
+  // assign cache_resp_rdy = memresp_rdy;
+  // assign memresp_msg = cache_resp_msg;
+
+  
+  lab3_cache_CacheBaseDpath dpath 
+  (
+      .send_mem_addr () ,
+      .send_mem_data,
+      .batch_receive_data,
+
+      .cache_req_msg
+      .cache_resp_data
+  );
+
+  lab3_cache_CacheBaseCtrl ctrl 
+  (
+    .memreq_val,
+    .memreq_rdy,
+    .memresp_val,
+    .memresp_rdy,
 
 
+  )
 endmodule
 
 
