@@ -23,9 +23,11 @@ module top(  input logic clk, input logic linetrace );
     logic         ostream_rdy;
     logic [ 31:0] inp_addr;
     logic [511:0] inp_data;
-    logic [ 31:0] mem_addr;
-    logic [ 31:0] mem_data;
+    logic         rw; 
+    // logic [ 31:0] mem_addr;
+    // logic [ 31:0] mem_data;
 
+    mem_req_4B_t  mem_req; 
     //----------------------------------------------------------------------
     // Module instantiations
     //----------------------------------------------------------------------
@@ -50,6 +52,7 @@ module top(  input logic clk, input logic linetrace );
         ostream_rdy = 0; 
         inp_addr = 32'hFFFFFFC0; 
         inp_data = {32'd1, 32'd2,  32'd3, 32'd4, 32'd5, 32'd6, 32'd7, 32'd8, 32'd9, 32'd10, 32'd11, 32'd12, 32'd13, 32'd14, 32'd15, 32'd16}; 
+        rw       = 1; 
         $display("beginning: istream val is %d", DUT.ctrl.istream_val);
         $display("beginning: istream rdy is %d", DUT.ctrl.istream_rdy);
 
@@ -74,10 +77,11 @@ module top(  input logic clk, input logic linetrace );
             end
         
 
-            assertion("addr:", inp_addr + i * 4, mem_addr);
+            assertion("addr:", inp_addr + i * 4, mem_req.addr);
             expected = inp_data>>(i*32);
-            assertion("data: ", expected[31:0], mem_data); 
-            ostream_rdy = 0;
+            assertion("data: ", expected[31:0], mem_req.data); 
+            ostream_rdy = 0; 
+            assertion("rw: ", 32'd1, {29'd0, mem_req.type_});
             @(negedge clk);
         end
 

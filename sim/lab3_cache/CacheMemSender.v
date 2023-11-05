@@ -25,15 +25,20 @@ module lab3_cache_CacheMemSender
 
     input  logic [ 31:0] inp_addr,
     input  logic [511:0] inp_data,
+    input  logic         rw,            // 0 if read, 1 if write 
 
-    output logic [ 31:0] mem_addr, 
-    output logic [ 31:0] mem_data
+    // output logic [ 31:0] mem_addr, 
+    // output logic [ 31:0] mem_data
+    output mem_req_4B_t  mem_req
 );
 
     // Control signals
 
     logic incr_reg_en;
     logic incr_mux_sel;
+
+    logic [31:0] mem_addr; 
+    logic [31:0] mem_data; 
 
     logic [31:0] addr; 
     logic [31:0] data; 
@@ -60,6 +65,8 @@ module lab3_cache_CacheMemSender
 
     assign mem_addr = addr & {32{ostream_val}};
     assign mem_data = data & {32{ostream_val}};
+
+    assign mem_req = {2'd0, rw, 8'd0, mem_addr, 2'd0, mem_data}; 
 
 endmodule
 
