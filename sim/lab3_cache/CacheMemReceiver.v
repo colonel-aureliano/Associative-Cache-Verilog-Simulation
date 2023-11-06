@@ -18,7 +18,7 @@ module lab3_cache_CacheMemReceiver
  
     input  logic         istream_val,
     output logic         istream_rdy,
-    input  logic [31:0]  cache_resp_msg,
+    input  mem_resp_4B_t cache_resp_msg,
  
     output logic         ostream_val,
     input  logic         ostream_rdy,
@@ -40,7 +40,7 @@ module lab3_cache_CacheMemReceiver
     (
         .clk                  (clk),
         .reset                (reset), 
-        .cache_resp_msg       (cache_resp_msg),
+        .cache_resp_data      (cache_resp_msg.data),
         .output_data          (data),
         .*
     );
@@ -49,6 +49,7 @@ module lab3_cache_CacheMemReceiver
 
     lab3_cache_CacheMemReceiver_Control ctrl
     (
+        .cache_resp_type       (cache_resp_msg.type_),
         .*
     );
 
@@ -61,7 +62,7 @@ module lab3_cache_CacheMemReceiver_Dpath
     input  logic         clk, 
     input  logic         reset,
 
-    input  logic [ 31:0] cache_resp_msg,
+    input  logic [ 31:0] cache_resp_data,
     output logic [511:0] output_data,            // 64B
 
     //---------------------- control inputs ------------
@@ -73,7 +74,7 @@ module lab3_cache_CacheMemReceiver_Dpath
 );
 
     logic [511:0] resp_msg_extended;
-    assign resp_msg_extended = {480'b0,cache_resp_msg};
+    assign resp_msg_extended = {480'b0,cache_resp_data};
 
     logic [ 9:0] incr_mux_out;
     logic [ 9:0] incr_reg_out;
@@ -129,21 +130,22 @@ endmodule
 
 module lab3_cache_CacheMemReceiver_Control 
 (
-    input  logic         clk, 
-    input  logic         reset,
+    input  logic        clk, 
+    input  logic        reset,
 
     // Dataflow signals
-    input  logic istream_val,
-    output logic istream_rdy,
+    input  logic        istream_val,
+    output logic        istream_rdy,
 
-    output logic ostream_val,
-    input  logic ostream_rdy,
+    output logic        ostream_val,
+    input  logic        ostream_rdy,
+    input  logic [2:0]  cache_resp_type,
 
    // Ctrl signals 
-    output logic         incr_reg_en, 
-    output logic         incr_mux_sel,
-    output logic         data_reg_en, 
-    output logic         data_mux_sel
+    output logic        incr_reg_en, 
+    output logic        incr_mux_sel,
+    output logic        data_reg_en, 
+    output logic        data_mux_sel
 );
 
     //===================================================================
@@ -159,7 +161,7 @@ module lab3_cache_CacheMemReceiver_Control
     logic [2:0] state_next;
 
     always_ff @(posedge clk)
-    if ( reset ) begin 
+    if ( reset || (cache_resp_type != `VC_MEM_RESP_MSG_TYPE_READ)) begin 
         state_reg <= STATE_IDLE;
         counter <= 0; 
     end

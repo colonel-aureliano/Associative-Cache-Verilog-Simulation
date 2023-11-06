@@ -16,6 +16,8 @@ module lab3_cache_CacheBase
 
 
   // imem
+  // The imem / memreq signals correspond to processor-cache communication; 
+  // the cache should handle requests from the processor, and should give responses back to the processor
 
   input  logic                    memreq_val,
   output logic                    memreq_rdy,
@@ -25,7 +27,9 @@ module lab3_cache_CacheBase
   input  logic                    memresp_rdy,
   output mem_resp_4B_t            memresp_msg,
 
-  //cache
+  // cache
+  // The cache / cachereq signals correspond to cache-memory communication; 
+  // the cache should issue requests to the main memory, and receive responses back from it
   output  logic                    cache_req_val,
   input   logic                    cache_req_rdy,
   output  mem_req_4B_t             cache_req_msg,
