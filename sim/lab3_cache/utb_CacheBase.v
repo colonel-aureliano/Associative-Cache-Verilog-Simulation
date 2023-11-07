@@ -57,6 +57,7 @@ module top(  input logic clk, input logic linetrace );
     //----------------------------------------------------------------------
 
     logic [511:0] expected;
+    logic [31:0] holder; 
     initial begin
 
         $display("Start of Testbench");
@@ -93,8 +94,21 @@ module top(  input logic clk, input logic linetrace );
 
         @(negedge clk); 
         @(negedge clk); 
-        $display("batch send ready %h", DUT.dpath.batch_sender.ctrl.istream_rdy);
+        memreq_val = 0; 
+        for (integer i = 0; i < 16; i++) begin 
+            assign holder = i; 
+            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
+            cache_resp_val = 1; 
+            
+            @(negedge clk); 
+            while ( !cache_resp_rdy ) @(negedge clk); 
 
+            cache_resp_val = 0; 
+            @(negedge clk);
+        end
+
+        @(negedge clk); 
+        @(negedge clk);
         $finish();
 
     end

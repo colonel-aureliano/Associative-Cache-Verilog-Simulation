@@ -167,7 +167,7 @@ module lab3_cache_CacheMemReceiver_Control
     end
     else begin
         if ( state_reg == STATE_IDLE) counter <= 5'd0; 
-        if ( state_reg == STATE_RECEIVE && state_next == STATE_RECEIVE ) counter <= next_counter; 
+        if ( state_next == STATE_RECEIVE ) counter <= next_counter; 
         state_reg <= state_next;
     end
 
