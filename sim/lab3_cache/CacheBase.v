@@ -52,26 +52,79 @@ module lab3_cache_CacheBase
   // assign cache_resp_rdy = memresp_rdy;
   // assign memresp_msg = cache_resp_msg;
 
-  
+  logic req_reg_en_0; 
+  logic darray_wen_0; 
+  logic tarray_wen_0; 
+  logic tarray_match; 
+  logic dirty_wen_0; 
+  logic dirty_wdata_0; 
+  logic is_dirty_0; 
+  logic batch_send_istream_val; 
+  logic batch_send_istream_rdy; 
+  logic batch_send_ostream_val; 
+  logic batch_send_ostream_rdy; 
+  logic batch_send_rw; 
+  logic batch_receive_istream_val; 
+  logic batch_receive_istream_rdy; 
+  logic batch_receive_ostream_rdy; 
+  logic batch_receive_ostream_val; 
+  logic darray_write_mux_sel;
+
+  logic req_reg_en_1; 
+  logic parallel_read_mux_sel;
+
+  logic darray_wen_1;  
+  logic word_en_sel; 
+
+  logic dirty_wdata_1; 
+  logic dirty_wen_1; 
+  logic is_dirty_1; 
+
+  logic batch_
   lab3_cache_CacheBaseDpath dpath 
   (
-      .send_mem_addr () ,
-      .send_mem_data,
-      .batch_receive_data,
+    .clk (clk),
+    .reset (reset),
+    //definition of inputs and outputs 
+    
+    // interface
+    .memreq_msg (memreq_msg),
 
-      .cache_req_msg
-      .cache_resp_data
+    // ------ M0 stage ----------
+    .req_reg_en_0 (req_reg_en_0); 
+    .darray_wen_0 (darray_wen_0) ; 
+    .tarray_wen_0 (tarray_wen_0) ; 
+    .tarray_match (tarray_match) ;
+    .dirty_wen_0 (dirty_wen_0) ; 
+    .dirty_wdata_0 (dirty_wdata_0);  
+    .is_dirty_0 (is_dirty_0) ;
+    .batch_send_istream_val (batch_send_istream_val); 
+    .batch_send_istream_rdy (batch_send_istream_rdy); 
+    .batch_send_ostream_val (batch_send_ostream_val); 
+    .batch_send_ostream_rdy (batch_send_ostream_rdy); 
+    .batch_send_rw (batch_send_rw) ; 
+    .send_mem_req ( cache_req_msg ); 
+    .batch_receive_istream_val (batch_receive_istream_val); 
+    .batch_receive_istream_rdy (batch_receive_istream_rdy); 
+    .batch_receive_ostream_rdy (batch_receive_ostream_rdy); 
+    .batch_receive_ostream_val (batch_receive_ostream_val); 
+    .batch_receive_data ( cache_req_msg.data ); 
+    .darray_write_mux_sel (darray_write_mux_sel);
+    .req_reg_en_1 (req_reg_en_1); 
+    .parallel_read_mux_sel (parallel_read_mux_sel);
+    .darray_wen_1 (darray_wen_1);  
+    .word_en_sel (word_en_sel); 
+    .dirty_wdata_1 (dirty_wdata_1); 
+    .dirty_wen_1 (dirty_wen_1); 
+    .is_dirty_1 (is_dirty_1); 
+    .memresp_msg ( memresp_msg ); // TODO: switch to mem 4B data
   );
 
   lab3_cache_CacheBaseCtrl ctrl 
   (
-    .memreq_val,
-    .memreq_rdy,
-    .memresp_val,
-    .memresp_rdy,
+    .* 
+  );
 
-
-  )
 endmodule
 
 

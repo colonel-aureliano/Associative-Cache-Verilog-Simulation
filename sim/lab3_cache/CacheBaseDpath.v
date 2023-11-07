@@ -23,71 +23,72 @@ module lab3_cache_CacheBaseDpath
     //definition of inputs and outputs 
     
     // interface
-    input  mem_req_4B_t cache_req_msg,
+    input  mem_req_4B_t memreq_msg,
 
     // ------ M0 stage ----------
-    input  logic        req_reg_en_0; 
+    input  logic        req_reg_en_0,
 
     // data array 
-    input logic         darray_wen_0; 
+    input logic         darray_wen_0,
 
     // tag array logic
-    input  logic        tarray_wen_0; 
-    output logic        tarray_match;
+    input  logic        tarray_wen_0,
+    output logic        tarray_match,
     
     // dirty bit array logic 
-    input  logic        dirty_wen_0; 
-    input  logic        dirty_wdata_0; 
-    output logic        is_dirty_0;
+    input  logic        dirty_wen_0,
+    input  logic        dirty_wdata_0,
+    output logic        is_dirty_0,
 
 
     // batch send request to memory: 
-    input  logic        batch_send_istream_val; 
-    output logic        batch_send_istream_rdy; 
-    output logic        batch_send_ostream_val; 
-    input  logic        batch_send_ostream_rdy; 
+    input  logic        batch_send_istream_val,
+    output logic        batch_send_istream_rdy,
+    output logic        batch_send_ostream_val,
+    input  logic        batch_send_ostream_rdy,
     
-    input  logic        batch_send_rw; 
-    output mem_req_4B_t send_mem_req; 
+    input  logic        batch_send_rw,
+    output mem_req_4B_t send_mem_req,
 
     // batch receive request from memory: 
-    input  logic        batch_receive_istream_val; 
-    output logic        batch_receive_istream_rdy; 
-    input  logic        batch_receive_ostream_rdy; 
-    output logic        batch_receive_ostream_val; 
+    input  logic        batch_receive_istream_val,
+    output logic        batch_receive_istream_rdy,
+    input  logic        batch_receive_ostream_rdy,
+    output logic        batch_receive_ostream_val,
 
-    input  logic [31:0] batch_receive_data; 
+    input  logic [31:0] batch_receive_data,
     //darray write M0 
-    input  logic        darray_write_mux_sel;
+    input  logic        darray_write_mux_sel,
 
     // -------------- M1 Stage --------------
-    input  logic        req_reg_en_1; 
-    input  logic        parallel_read_mux_sel;
+    input  logic        req_reg_en_1,
+    input  logic        parallel_read_mux_sel,
     // data array: 
-    input  logic        darray_wen_1;  
-    input  logic        word_en_sel; 
+    input  logic        darray_wen_1,
+    input  logic        word_en_sel,
 
     // dirty array
-    input  logic        dirty_wdata_1; 
-    input  logic        dirty_wen_1; 
-    output logic        is_dirty_1; 
+    input  logic        dirty_wdata_1,
+    input  logic        dirty_wen_1,
+    output logic        is_dirty_1,
 
     // output 
-    output logic [31:0] cache_resp_data;
+    output mem_req_4B_t memresp_msg
 
 );
 
     logic [31:0] next_req_addr; 
     logic [31:0] next_req_data; 
     
-    assign next_req_addr = cache_req_msg.addr; 
-    assign next_req_data = cache_req_msg.data; 
+    assign next_req_addr = memreq_msg.addr; 
+    assign next_req_data = memreq_msg.data; 
 
     //-----------------------------------------------------------------------
     // M0 Stage
     //-----------------------------------------------------------------------
     logic [31:0] req_addr0; 
     logic [31:0] req_data0; 
+    logic mem_req_4B_t req_msg0; 
     vc_EnResetReg#(32) req_addr0_reg
     (
         .clk    (clk),
@@ -104,6 +105,15 @@ module lab3_cache_CacheBaseDpath
         .en     (req_reg_en),
         .d      (next_req_data),
         .q      (req_data0)
+    );
+
+    vc_EnResetReg#(32) req_msg0_reg
+    (
+        .clk    (clk),
+        .reset  (reset),
+        .en     (req_reg_en),
+        .d      (memreq_msg),
+        .q      (req_msg0)
     );
 
     logic [20:0] tag0;       // 32 - 5 - 6 bit tag
@@ -276,6 +286,16 @@ module lab3_cache_CacheBaseDpath
     logic [ 31:0] req_addr_reg1_out;
     logic [ 31:0] req_addr1; 
     
+    logic mem_req_4B_t req_msg1; 
+    vc_EnResetReg#(77) req_msg1_reg
+    (
+        .clk    (clk),
+        .reset  (reset),
+        .en     (req_reg_en_1),
+        .d      (req_msg0),
+        .q      (req_msg1)
+    );
+
     vc_EnResetReg#(32) req_addr1_reg
     (
         .clk    (clk),
@@ -304,8 +324,6 @@ module lab3_cache_CacheBaseDpath
     );
 
 
-
-
     assign darray_wdata_1 = req_data1;
 
 
@@ -330,6 +348,7 @@ module lab3_cache_CacheBaseDpath
 
     
     // resulting muxes 
+    logic [31:0] cache_resp_data; 
     logic [31:0] cache_line_lower;
     vc_Mux8#(32) cache_result_mux_lower 
     (
@@ -368,6 +387,8 @@ module lab3_cache_CacheBaseDpath
         .out (cache_resp_data)
     ); 
 
+
+    assign memresp_msg = {req_msg1.type_, 8'b0, 2'b0, 2'b0, cache_resp_data};
 endmodule
 
 
