@@ -27,8 +27,6 @@ module lab3_cache_CacheMemSender
     input  logic [511:0] inp_data,
     input  logic         rw,            // 0 if read, 1 if write 
 
-    // output logic [ 31:0] mem_addr, 
-    // output logic [ 31:0] mem_data
     output mem_req_4B_t  mem_req
 );
 

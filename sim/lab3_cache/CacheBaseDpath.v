@@ -47,8 +47,8 @@ module lab3_cache_CacheBaseDpath
     output logic        batch_send_ostream_val; 
     input  logic        batch_send_ostream_rdy; 
     
-    output logic [31:0] send_mem_addr; 
-    output logic [31:0] send_mem_data;
+    input  logic        batch_send_rw; 
+    output mem_req_4B_t send_mem_req; 
 
     // batch receive request from memory: 
     input  logic        batch_receive_istream_val; 
@@ -240,13 +240,11 @@ module lab3_cache_CacheBaseDpath
 
         .inp_addr    (sender_inp_addr),
         .inp_data    (darray_rdata_0),
+        .rw          (batch_send_rw)
 
-        .mem_addr    (send_mem_addr), 
-        .mem_data    (send_mem_data)
+        .mem_req     (send_mem_req), 
     ); 
 
-    logic [511:0] repl_unit_out; 
-    repl_unit_out = {16{req_data0}}; 
     
     // batch receiver
     logic [511:0] from_mem_data; 
@@ -264,20 +262,12 @@ module lab3_cache_CacheBaseDpath
         .ostream_rdy (batch_receive_ostream_rdy), 
 
         .mem_data (from_mem_data)
-    )
-
-    
-    logic [511:0] darray_write_mux_out; 
-
-    vc_Mux2#(512) darray_write_mux
-    (
-        .in0  (repl_unit_out),
-        .in1  (from_mem_data),
-        .sel  (darray_write_mux_sel),
-        .out  (darray_write_mux_out)
     );
 
-    assign darray_wdata_0 = darray_write_mux_out;
+    assign darray_wdata_0 = from_mem_data;
+
+    logic [511:0] repl_unit_out; 
+    repl_unit_out = {16{req_data0}}; 
 
     // ==========================================================================
     //                           M1 stage 
@@ -309,7 +299,7 @@ module lab3_cache_CacheBaseDpath
         .clk    (clk),
         .reset  (reset),
         .en     (req_reg_en_1),
-        .d      (darray_write_mux_out),
+        .d      (repl_unit_out),
         .q      (req_data1)
     );
 
