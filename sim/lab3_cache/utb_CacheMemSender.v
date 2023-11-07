@@ -84,6 +84,10 @@ module top(  input logic clk, input logic linetrace );
             assertion("rw: ", 32'd1, {29'd0, mem_req.type_});
             @(negedge clk);
         end
+        
+        @(negedge clk); 
+        assertion("end state: ", 32'd0, {29'd0, DUT.ctrl.state_reg});
+        assertion("rdy: ", {31'd0, 1'd1}, {31'd0, istream_rdy});
 
         $finish();
 

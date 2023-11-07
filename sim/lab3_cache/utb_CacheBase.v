@@ -83,13 +83,17 @@ module top(  input logic clk, input logic linetrace );
             // should get 16 write requests to the memory 
 
             cache_req_rdy = 1; 
-
+            @(negedge clk);
             while ( !cache_req_val ) @(negedge clk); 
 
             cache_req_rdy = 0; 
             assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
             @(negedge clk); 
         end
+
+        @(negedge clk); 
+        @(negedge clk); 
+        $display("batch send ready %h", DUT.dpath.batch_sender.ctrl.istream_rdy);
 
         $finish();
 

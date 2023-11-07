@@ -209,7 +209,6 @@ module lab3_cache_CacheMemSender_Control
     localparam STATE_IDLE = 3'd0;
     localparam STATE_CALC = 3'd1;
     localparam STATE_SEND = 3'd2;
-    localparam STATE_WAIT = 3'd3;
     localparam STATE_DONE = 3'd4; 
 
     logic [2:0] state_reg;
@@ -222,7 +221,7 @@ module lab3_cache_CacheMemSender_Control
     end
     else begin
         if ( state_reg == STATE_IDLE) counter <= 5'd0; 
-        if ( state_reg == STATE_SEND && state_next == STATE_CALC ) counter <= next_counter; 
+        if ( state_next == STATE_SEND && state_reg != STATE_SEND ) counter <= next_counter; 
         state_reg <= state_next;
     end
 
@@ -237,24 +236,29 @@ module lab3_cache_CacheMemSender_Control
     always_comb begin 
         case ( state_reg ) 
             STATE_IDLE: begin 
+                // $display("idle %h: ", counter);
                 if ( istream_val && istream_rdy ) begin 
-                    state_next = STATE_CALC;
+                    state_next = STATE_SEND;
                 end
                 else state_next = STATE_IDLE;
             end
-            STATE_CALC: if ( !ostream_rdy ) state_next = STATE_WAIT; else state_next = STATE_SEND; 
+            STATE_CALC: begin 
+                // $display("calc %h: ", counter);
+                if ( !ostream_rdy ) state_next = STATE_CALC; else state_next = STATE_SEND; 
+            end
             STATE_SEND: begin 
-                if ( ostream_rdy && ostream_val && counter < 16) begin 
+                // $display("send %h: ", counter);
+                // $display(" ostream rdy: %h", ostream_rdy);
+                if ( ostream_rdy && counter < 16) begin 
                     state_next = STATE_CALC;
                 end
-                else if ( ostream_rdy && ostream_val ) state_next = STATE_DONE; 
+                else if ( counter >= 16 ) state_next = STATE_DONE; 
                 else state_next = STATE_SEND;
             end  
-            STATE_WAIT: begin 
-                if ( ostream_rdy ) state_next = STATE_SEND; 
-                else state_next = STATE_WAIT;
-            end 
-            STATE_DONE: state_next = STATE_IDLE;
+            STATE_DONE: begin 
+                // $display("done %h: ", counter);
+                state_next = STATE_IDLE;
+            end
             default: state_next = STATE_IDLE;
         endcase
     end
@@ -288,11 +292,10 @@ module lab3_cache_CacheMemSender_Control
             //                                  istream ostream reg     mux  
             //                                  rdy        val   en     sel  
             STATE_IDLE:                     cs( 1,         0,    0,   mux_x   );
-            STATE_CALC: if ( counter == 0 ) cs( 0,         0,    0,   mux_inp );
-                        else                cs( 0,         0,    1,   mux_reg );
+            STATE_CALC: if ( counter == 0 ) cs( 1,         0,    0,   mux_inp );
+                        else                cs( 1,         0,    1,   mux_reg );
             STATE_SEND: if ( counter == 0 ) cs( 0,         1,    0,   mux_inp );
                         else                cs( 0,         1,    0,   mux_reg );
-            STATE_WAIT:                     cs( 0,         0,    0,   mux_x   );
             STATE_DONE:                     cs( 0,         0,   'x,   mux_x   );
             default:                        cs('x,        'x,   'x,   mux_x   );
         endcase
