@@ -150,11 +150,13 @@ module lab3_cache_CacheBaseCtrl
 
     assign tarray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
     assign darray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
+    assign dirty_wen_0 = val_0 && memreq_state == evict_req; 
 
     always_ff @(posedge clk) begin 
         if ( reset ) begin 
             memreq_state <= no_request; 
         end else begin 
+            if (memreq_state_next == evict_req) dirty_wdata_0 <= 0; 
             memreq_state <= memreq_state_next; 
         end
     end 
@@ -210,12 +212,14 @@ module lab3_cache_CacheBaseCtrl
     (
         input cs_dirty_wen_0,
         input cs_dirty_wdata_0,
+        input cs_batch_send_rw, 
         input cs_batch_send_istream_val,
         input cs_batch_receive_ostream_rdy
     );
         begin
-            dirty_wen_0               = cs_dirty_wen_0;
-            dirty_wdata_0             = cs_dirty_wdata_0;
+            // dirty_wen_0               = cs_dirty_wen_0;
+            // dirty_wdata_0             = cs_dirty_wdata_0;
+            batch_send_rw             = cs_batch_send_rw;
             batch_send_istream_val    = cs_batch_send_istream_val;
             batch_receive_ostream_rdy = cs_batch_receive_ostream_rdy;
         end
@@ -224,14 +228,14 @@ module lab3_cache_CacheBaseCtrl
     always @(*) begin
 
         case ( memreq_state )
-            //                                             send     receive
-            //                             dirty   dirty  istream   ostream
-            //                             wen0   wdata0    val      rdy
-            no_request:                 cs( 0,       0,     0,       0 );
-            evict_req:                  cs( 1,       1,     1,       0 );
-            refill_req:                 cs( 0,       0,     1,       1 );
-            refill_req_done:            cs( 0,       0,     1,       1 );
-            default:                    cs('x,      'x,     0,       0 );
+            //                                            send      send     receive
+            //                             dirty   dirty istream   istream   ostream
+            //                             wen0   wdata0   rw       val      rdy
+            no_request:                 cs( 0,       0,    0,       0,       0 );
+            evict_req:                  cs( 1,       0,    1,       1,       0 );
+            refill_req:                 cs( 0,       0,    0,       1,       1 );
+            refill_req_done:            cs( 0,       0,    0,       1,       1 );
+            default:                    cs('x,      'x,   'x,       0,       0 );
         endcase
 
     end
@@ -271,10 +275,10 @@ module lab3_cache_CacheBaseCtrl
     assign msg_addr_1 = request_0.addr; 
     assign msg_data_1 = request_0.data;
 
-    assign darray_wen_1 = msg_type_1; 
+    assign darray_wen_1 = val_1 && msg_type_1; 
     assign word_en_sel = msg_type_1; 
 
-    assign dirty_wen_0 = msg_type_1; 
+    assign dirty_wen_1 = val_1 && msg_type_1; 
     assign dirty_wdata_1 = msg_type_1; 
 
     

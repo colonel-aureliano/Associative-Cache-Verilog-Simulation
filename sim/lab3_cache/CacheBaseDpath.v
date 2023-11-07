@@ -219,8 +219,8 @@ module lab3_cache_CacheBaseDpath
         .read_addr0  (index0),
         .read_data0  (is_dirty_0),
 
-        .read_addr1  (),
-        .read_data1  (),                // TODO: DOUBLE CHECK
+        .read_addr1  (index1),
+        .read_data1  (is_dirty_1),                // TODO: DOUBLE CHECK
 
         .write_en0   (dirty_wen_0),
         .write_addr0 (index0),
@@ -235,7 +235,7 @@ module lab3_cache_CacheBaseDpath
 
     // ----------------------- Fetch Memory Dpath -------------
     logic [31:0] sender_inp_addr; 
-    assign sender_inp_addr = req_addr0 & 32'hFFFFFFC0;  //z6b
+    assign sender_inp_addr = {tarray_rdata_0, index0, 6'd0} ;  //z6b
 
     lab3_cache_CacheMemSender batch_sender 
     (

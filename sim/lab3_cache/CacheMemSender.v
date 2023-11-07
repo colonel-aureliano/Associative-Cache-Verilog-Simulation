@@ -34,12 +34,15 @@ module lab3_cache_CacheMemSender
 
     logic incr_reg_en;
     logic incr_mux_sel;
+    logic rw_reg_en; 
 
     logic [31:0] mem_addr; 
     logic [31:0] mem_data; 
 
     logic [31:0] addr; 
-    logic [31:0] data; 
+    logic [31:0] data;
+    logic        mem_rw;
+
     // Instantiate and connect datapath
 
     lab3_cache_CacheMemSender_Dpath dpath
@@ -48,8 +51,10 @@ module lab3_cache_CacheMemSender
         .reset         (reset), 
         .inp_addr      (inp_addr),
         .inp_data      (inp_data),
+        .inp_rw       (rw),
         .mem_addr      (addr), 
         .mem_data      (data),
+        .mem_rw        (mem_rw),
         .*
     );
 
@@ -64,7 +69,7 @@ module lab3_cache_CacheMemSender
     assign mem_addr = addr & {32{ostream_val}};
     assign mem_data = data & {32{ostream_val}};
 
-    assign mem_req = {2'd0, rw, 8'd0, mem_addr, 2'd0, mem_data}; 
+    assign mem_req = {2'd0, mem_rw, 8'd0, mem_addr, 2'd0, mem_data}; 
 
 endmodule
 
@@ -75,14 +80,16 @@ module lab3_cache_CacheMemSender_Dpath
 
     input  logic [ 31:0] inp_addr,
     input  logic [511:0] inp_data,            // 64B
+    input  logic         inp_rw,
 
     output logic [ 31:0] mem_addr, 
-    output logic [ 31:0] mem_data, 
+    output logic [ 31:0] mem_data,
+    output logic         mem_rw, 
 
     //---------------------- control inputs ------------
     input  logic         incr_reg_en, 
-    input  logic         incr_mux_sel
-
+    input  logic         incr_mux_sel,
+    input  logic         rw_reg_en
 );
     
     logic [ 25:0] tag; 
@@ -108,6 +115,21 @@ module lab3_cache_CacheMemSender_Dpath
     assign segmented_data[13] = inp_data[ 447 :  416]; 
     assign segmented_data[14] = inp_data[ 479 :  448]; 
     assign segmented_data[15] = inp_data[ 511 :  480]; 
+
+    //=======================================================================
+    //                      keep track of the current rw signal
+    //=======================================================================
+
+
+    vc_EnReg#(1) rw_reg
+    (
+        .clk   (clk),
+        .reset (reset),
+        .en    (rw_reg_en),
+        .d     (inp_rw),
+        .q     (mem_rw)
+    );
+
 
     //=======================================================================
     //                      increment addr by 4 each cycle
@@ -199,7 +221,8 @@ module lab3_cache_CacheMemSender_Control
     
     // Ctrl signals 
     output logic incr_mux_sel, 
-    output logic incr_reg_en
+    output logic incr_reg_en, 
+    output logic rw_reg_en
 );
 
     //----------------------------------------------------------------------
@@ -218,10 +241,15 @@ module lab3_cache_CacheMemSender_Control
     if ( reset ) begin 
         state_reg <= STATE_IDLE;
         counter <= 0; 
+        incr_reg_en <= 0; 
     end
     else begin
         if ( state_reg == STATE_IDLE) counter <= 5'd0; 
-        if ( state_next == STATE_SEND && state_reg != STATE_SEND ) counter <= next_counter; 
+        if ( state_next == STATE_SEND && state_reg != STATE_SEND ) begin 
+            incr_reg_en <= 1; 
+            counter <= next_counter; 
+        end else incr_reg_en <= 0; 
+
         state_reg <= state_next;
     end
 
@@ -275,13 +303,16 @@ module lab3_cache_CacheMemSender_Control
         input cs_istream_rdy,
         input cs_ostream_val,
         input cs_incr_reg_en,
-        input cs_incr_mux_sel
+        input cs_incr_mux_sel, 
+        input cs_rw_reg_en,
     );
         begin
             istream_rdy       = cs_istream_rdy;
             ostream_val       = cs_ostream_val;
-            incr_reg_en       = cs_incr_reg_en;
+            // incr_reg_en       = cs_incr_reg_en;
             incr_mux_sel      = cs_incr_mux_sel;
+            rw_reg_en         = cs_rw_reg_en;
+
         end
     endtask
 
@@ -291,13 +322,13 @@ module lab3_cache_CacheMemSender_Control
 
             //                                  istream ostream reg     mux  
             //                                  rdy        val   en     sel  
-            STATE_IDLE:                     cs( 1,         0,    0,   mux_x   );
-            STATE_CALC: if ( counter == 0 ) cs( 1,         0,    0,   mux_inp );
-                        else                cs( 1,         0,    1,   mux_reg );
-            STATE_SEND: if ( counter == 0 ) cs( 0,         1,    0,   mux_inp );
-                        else                cs( 0,         1,    0,   mux_reg );
-            STATE_DONE:                     cs( 0,         0,   'x,   mux_x   );
-            default:                        cs('x,        'x,   'x,   mux_x   );
+            STATE_IDLE:                     cs( 1,         0,    0,   mux_x  , 1);
+            STATE_CALC: if ( counter == 0 ) cs( 1,         0,    1,   mux_inp, 0);
+                        else                cs( 1,         0,    1,   mux_reg, 0);
+            STATE_SEND: if ( counter <= 1 ) cs( 0,         1,    0,   mux_inp, 0);
+                        else                cs( 0,         1,    0,   mux_reg, 0);
+            STATE_DONE:                     cs( 0,         0,   'x,   mux_x  , 0);
+            default:                        cs('x,        'x,   'x,   mux_x  , 0);
         endcase
 
     end
