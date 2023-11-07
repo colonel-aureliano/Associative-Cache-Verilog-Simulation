@@ -106,6 +106,11 @@ module top(  input logic clk, input logic linetrace );
             cache_resp_val = 0; 
             @(negedge clk);
         end
+        @(negedge clk); 
+        
+        assertion512("new data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'h3,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[2]); 
+        
+        @(negedge clk); 
 
         @(negedge clk); 
         @(negedge clk);
@@ -122,5 +127,16 @@ module top(  input logic clk, input logic linetrace );
             end 
         end
     endtask
+
+    task assertion512( string varname, [511:0] expected, [511:0] actual ); 
+        begin 
+            assert(expected == actual) begin
+                $display("%s is correct.  Expected: %h, Actual: %h", varname, expected, actual); pass();
+            end else begin
+                $display("%s is incorrect.  Expected: %h, Actual: %h", varname, expected, actual); fail(); 
+            end 
+        end
+    endtask
+
 
 endmodule

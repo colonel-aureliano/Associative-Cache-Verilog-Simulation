@@ -145,7 +145,11 @@ module lab3_cache_CacheBaseCtrl
     logic [1:0] memreq_state_next; 
 
     logic       wait_refill; 
-    assign wait_refill = !tarray_match; 
+    assign wait_refill = val_0 && !tarray_match; 
+
+
+    assign tarray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
+    assign darray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
 
     always_ff @(posedge clk) begin 
         if ( reset ) begin 
@@ -156,7 +160,7 @@ module lab3_cache_CacheBaseCtrl
     end 
 
     always_comb begin 
-        if ( !tarray_match && is_dirty_0 )  begin 
+        if ( val_0 && !tarray_match && is_dirty_0 )  begin 
             // need to evict
             if ( memreq_state == no_request ) begin 
                 memreq_state_next = evict_req; 
@@ -173,7 +177,7 @@ module lab3_cache_CacheBaseCtrl
                 $stop(); 
             end
         end 
-        else if ( !tarray_match ) begin 
+        else if ( val_0 && !tarray_match ) begin 
             // need to refill 
             if ( memreq_state == no_request ) begin 
                 // before starting refill
@@ -204,16 +208,12 @@ module lab3_cache_CacheBaseCtrl
     
     task cs
     (
-        input cs_darray_wen_0,
-        input cs_tarray_wen_0,
         input cs_dirty_wen_0,
         input cs_dirty_wdata_0,
         input cs_batch_send_istream_val,
         input cs_batch_receive_ostream_rdy
     );
         begin
-            darray_wen_0              = cs_darray_wen_0;
-            tarray_wen_0              = cs_tarray_wen_0;
             dirty_wen_0               = cs_dirty_wen_0;
             dirty_wdata_0             = cs_dirty_wdata_0;
             batch_send_istream_val    = cs_batch_send_istream_val;
@@ -224,19 +224,19 @@ module lab3_cache_CacheBaseCtrl
     always @(*) begin
 
         case ( memreq_state )
-            //                                                            send     receive
-            //                              darray tarray dirty   dirty  istream   ostream
-            //                              wen     wen    wen    wdata    val      rdy
-            no_request:                 cs( 0,       0,    0,       0,     0,       0 );
-            evict_req:                  cs( 0,       0,    1,       1,     1,       0 );
-            refill_req:                 cs( 0,       0,    0,       0,     1,       1 );
-            refill_req_done:            cs( 1,       1,    0,       0,     1,       1 );
-            default:                    cs('x,      'x,   'x,      'x,     0,       0 );
+            //                                             send     receive
+            //                             dirty   dirty  istream   ostream
+            //                             wen0   wdata0    val      rdy
+            no_request:                 cs( 0,       0,     0,       0 );
+            evict_req:                  cs( 1,       1,     1,       0 );
+            refill_req:                 cs( 0,       0,     1,       1 );
+            refill_req_done:            cs( 0,       0,     1,       1 );
+            default:                    cs('x,      'x,     0,       0 );
         endcase
 
     end
 
-    assign stall_0 = wait_refill; 
+    assign stall_0 = wait_refill || stall_1; 
 
     logic next_val_1; 
     assign next_val_1 = val_0 && !stall_0; 
@@ -255,7 +255,7 @@ module lab3_cache_CacheBaseCtrl
             val_1 <= 1'b0; 
             parallel_read_mux_sel <= 0; 
         end
-        else begin 
+        else if ( req_reg_en_1 ) begin 
             val_1 <= next_val_1; 
             parallel_read_mux_sel <= 1; 
             request_1 <= request_0; 
