@@ -116,7 +116,7 @@ module lab3_cache_CacheBaseCtrl
         end 
     end
 
-    assign memreq_rdy = !stall_0;  
+    assign memreq_rdy = val_0 && !stall_0;  
 
     logic        msg_type; 
     logic [31:0] msg_addr_0; 
@@ -140,7 +140,7 @@ module lab3_cache_CacheBaseCtrl
 
     assign tarray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
     assign darray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
-    assign dirty_wen_0 = val_0 && memreq_state == evict_req; 
+    assign dirty_wen_0 = val_0 && (memreq_state == evict_req || (flush_state == flushing && is_dirty_0)); 
 
 
     localparam no_flush   = 2'd0; 
@@ -171,6 +171,7 @@ module lab3_cache_CacheBaseCtrl
     always_comb begin 
         if ( val_0 && !tarray_match && is_dirty_0 && !flush )  begin 
             // need to evict
+            flush_next = no_flush; 
             if ( memreq_state == no_request ) begin 
                 memreq_state_next = evict_req; 
             end 
@@ -183,12 +184,13 @@ module lab3_cache_CacheBaseCtrl
                 end
             end else begin 
                 memreq_state_next = no_request;
+                flush_next = no_flush;
                 $stop(); 
             end
 
-            flush_next = no_flush; 
         end 
         else if ( val_0 && !tarray_match  && !flush ) begin 
+            flush_next = no_flush;
             // need to refill 
             if ( memreq_state == no_request ) begin 
                 // before starting refill
@@ -208,18 +210,29 @@ module lab3_cache_CacheBaseCtrl
                 else memreq_state_next = refill_req_done; 
             end else begin 
                 memreq_state_next = no_request; 
+                flush_next = no_flush;
                 $stop() ;
             end
-
-            flush_next = no_flush;
         end 
-        else if ( flush ) begin 
+        else if ( val_0 && flush ) begin 
+            // $display("get in flushing"); 
             // flushing we want to stay in evict, increment index
-            if (val_0 && flush_state == no_flush ) flush_next = flush_state; 
-            else if ( val_0 && flush_state == flushing && flush_counter < 31) flush_next = flushing; 
-            else if ( val_0 && flush_state == flushing ) flush_next = flush_fin; 
-            else if (val_0 && flush_state == flush_fin ) flush_next = no_flush;
-            else flush_next = no_flush;  
+            memreq_state_next = no_request;
+            if (flush_state == no_flush ) begin 
+                if ( stall_1 ) flush_next = no_flush; 
+                else flush_next = flushing; 
+            end
+            else if ( flush_state == flushing && flush_counter < 31) flush_next = flushing; 
+            else if ( flush_state == flushing ) flush_next = flush_fin; 
+            else if ( flush_state == flush_fin ) begin 
+                // $display(" possible no flush 1"); 
+                if ( memresp_rdy ) flush_next = no_flush; 
+                else flush_next = flush_fin;
+            end
+            else begin 
+                // $display("possible no flush 2");
+                flush_next = no_flush;  
+            end
         end
         else begin 
             memreq_state_next = no_request; 
@@ -260,7 +273,7 @@ module lab3_cache_CacheBaseCtrl
     localparam req_addr_sel = 1'd0; 
 
     logic flush_incr_sel; 
-    assign flush_incr_sel = flush_counter == 0; 
+    assign flush_incr_sel = flush_counter != 0; 
     always @(*) begin
         if ( !flush ) begin 
             case ( memreq_state )
@@ -280,8 +293,8 @@ module lab3_cache_CacheBaseCtrl
                 //                                            dirty   dirty istream   istream   ostream  addr  flush  mux   incr       incr
                 //                                            wen0   wdata0   rw       val      rdy       sel   done  sel  reg en     mux sel
                 no_flush:                                  cs( 0,       0,    1,       0,         0,      0,     0,    0,    0,         0);
-                flushing:  if ( batch_send_istream_rdy )   cs( 1,       0,    1,       1,         0,      1,     0,    1,    1,     flush_incr_sel);
-                           else                            cs( 0,       0,    1,       1,         0,      1,     0,    1,    0,     flush_incr_sel);
+                flushing:  if ( batch_send_istream_rdy )   cs( 1,       0,    1,   is_dirty_0,    0,      1,     0,    1,    1,     flush_incr_sel);
+                           else                            cs( 0,       0,    1,   is_dirty_0,    0,      1,     0,    1,    0,     flush_incr_sel);
                 flush_fin:                                 cs( 0,       0,    1,       0,         0,      1,     1,    0,    0,         0);
                 default:                                   cs('x,      'x,   'x,       0,         0,      0,     0,    0,    0,         0);
             endcase
@@ -290,7 +303,7 @@ module lab3_cache_CacheBaseCtrl
 
     end
 
-    assign stall_0 = wait_refill || stall_1; 
+    assign stall_0 = val_0 && (wait_refill || flush_state != no_flush || stall_1); 
 
     logic next_val_1; 
     assign next_val_1 = val_0 && !stall_0; 
@@ -304,16 +317,22 @@ module lab3_cache_CacheBaseCtrl
 
     assign req_reg_en_1 = !stall_1;
 
+    logic result_sent; 
+
     always_ff @( posedge clk ) begin 
         if ( reset ) begin 
             val_1 <= 1'b0; 
             parallel_read_mux_sel <= 0; 
+            result_sent <= 0; 
         end
         else if ( req_reg_en_1 ) begin 
             val_1 <= next_val_1; 
             parallel_read_mux_sel <= 1; 
             request_1 <= request_0; 
+            result_sent <= 0; 
         end
+
+        if ( memresp_rdy ) result_sent <= 1; 
     end
 
 
@@ -328,12 +347,15 @@ module lab3_cache_CacheBaseCtrl
     assign darray_wen_1 = val_1 && msg_type_1; 
     assign word_en_sel = msg_type_1; 
 
-    assign dirty_wen_1 = val_1 && msg_type_1; 
+    assign dirty_wen_1 = val_1 && msg_type_1 && ( flush_state != flushing); 
     assign dirty_wdata_1 = msg_type_1; 
 
     
     assign memresp_val = val_1;
 
+
+    
+    assign stall_1 = val_1 && ((msg_type_1 && !is_dirty_1) || !memresp_rdy); 
 
 endmodule
 
