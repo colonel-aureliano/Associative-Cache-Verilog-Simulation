@@ -72,7 +72,9 @@ module top(  input logic clk, input logic linetrace );
         @(negedge clk);
         reset = 0; 
         @(negedge clk);
-
+        // ==========================================================================
+        //                  read request,!tag_match, not dirty, refill, then read
+        // ==========================================================================
         memreq_val = 1; 
         memreq_msg = {3'd0, 8'd0, 21'd15, 5'd2, 4'd1, 2'd00, 2'd0, 32'hDEADBEEF}; // read request with tag 15, index 2, and offset 1
         
@@ -96,6 +98,7 @@ module top(  input logic clk, input logic linetrace );
         @(negedge clk); 
         memreq_val = 0; 
         for (integer i = 0; i < 16; i++) begin 
+            // writing in value for the refill
             assign holder = i; 
             cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
             cache_resp_val = 1; 
@@ -159,7 +162,6 @@ module top(  input logic clk, input logic linetrace );
         assertion("dirty: ", 32'd1, {31'd0, DUT.dpath.is_dirty_0}); 
         assertion("tagmatch: ", 32'd0, {31'd0, DUT.dpath.tarray_match}); 
         
-        assign expected = {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'hDEADBEEF,32'h2,32'h1,32'h0}; 
         assign holder = {21'd15, 5'd2, 6'd0}; 
         cache_req_rdy = 0; 
         for (integer i = 0; i < 16; i++) begin 
@@ -189,6 +191,47 @@ module top(  input logic clk, input logic linetrace );
             @(negedge clk); 
         end
 
+
+        @(negedge clk); 
+        @(negedge clk); 
+        for( integer i = 0; i < 16; i++ ) begin 
+            // giving in 16 write responses
+            // should be ignored by receiver
+
+            cache_resp_msg = {3'd1, 8'd0, 2'd0, 2'd0, 32'd0};
+            cache_resp_val = 1; 
+            @(negedge clk); 
+            assertion( "the receiver should remain rdy", 32'd1, {31'd0,cache_resp_rdy} );
+            // while ( !cache_resp_rdy ) @(negedge clk); 
+            cache_resp_val = 0; 
+            @(negedge clk);
+        end
+
+
+        for (integer i = 0; i < 16; i++) begin 
+            // giving in 16 read response value for the refill
+            holder = 32'hF - i; 
+            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
+            cache_resp_val = 1; 
+            
+            @(negedge clk); 
+            while ( !cache_resp_rdy ) @(negedge clk); 
+
+            cache_resp_val = 0; 
+            @(negedge clk);
+        end
+
+        @(negedge clk); 
+
+        @(negedge clk); 
+        assertion512("new data", {32'h0,32'h1,32'h2,32'h3,32'h4,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[2]); 
+        assertion("dirty: ", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[2]}); 
+        assertion("tag: ", {11'd0, 21'd7}, {11'd0, DUT.dpath.tag_array.rfile[2]});
+        
+        while ( !memresp_val ) @(negedge clk); 
+        @(negedge clk);
+        assertion("dirty: ", 32'd1, {31'd0, DUT.dpath.dirty_array.rfile[2]});
+        
         #20;
         $finish();
 
