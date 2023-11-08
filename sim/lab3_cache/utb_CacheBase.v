@@ -75,6 +75,8 @@ module top(  input logic clk, input logic linetrace );
         // ==========================================================================
         //                  read request,!tag_match, not dirty, refill, then read
         // ==========================================================================
+        $display("========================tag 15, index 2, and offset 1===================");
+
         memreq_val = 1; 
         memreq_msg = {3'd0, 8'd0, 21'd15, 5'd2, 4'd1, 2'd00, 2'd0, 32'hDEADBEEF}; // read request with tag 15, index 2, and offset 1
         
@@ -125,14 +127,16 @@ module top(  input logic clk, input logic linetrace );
         // ====================================================================
         //                      write on matching tag, and make dirty
         // ====================================================================
+        $display("========================write tag 15, index 2, and offset 1===================");
 
         memresp_rdy = 1;
 
         memreq_val = 1; 
         memreq_msg = {`VC_MEM_RESP_MSG_TYPE_WRITE, 8'd0, 21'd15, 5'd2, 4'd3, 2'd00, 2'd0, 32'hDEADBEEF}; // write request with tag 15, index 2, and offset 3
         
-        while (!memreq_rdy) @(negedge clk);                
+        while (!memresp_val) @(negedge clk);                
         @(negedge clk); 
+        @(negedge clk);
         assertion512("new data: ", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'hDEADBEEF,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[2]); 
 
         assertion("dirty: ", 32'd1, {31'd0, DUT.dpath.dirty_array.rfile[2]}); 
@@ -140,11 +144,13 @@ module top(  input logic clk, input logic linetrace );
         memresp_rdy = 1; 
         @(negedge clk);
 
+
         // ====================================================================
         //          write on mismatching tag, evict, refill, make dirty
         // ====================================================================
         // write request with tag 7, index 2, and offset 3
-        
+        $display("========================tag 7, index 2, and offset 3===================");
+
         memresp_rdy = 1;
 
         memreq_val = 1; 
@@ -232,7 +238,8 @@ module top(  input logic clk, input logic linetrace );
         //          write on mismatching tag, refill, make dirty
         // ====================================================================
         // write request with tag 9, index 5, and offset 11
-        
+        $display("========================write tag 9, index 5, and offset 11===================");
+
         memresp_rdy = 1;
 
         memreq_val = 1; 
@@ -335,7 +342,7 @@ module top(  input logic clk, input logic linetrace );
         end
 
 
-        assertion512("new data from previous write", {32'h0,32'h1,32'h2,32'h3,32'h4,32'hDEADBEEF,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[5]); 
+        assertion512("new data from previous write", {32'h0,32'h1,32'h2,32'h3,32'hDEADBEEF,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[5]); 
         assertion("tag: ", {11'd0, 21'd9}, {11'd0, DUT.dpath.tag_array.rfile[5]});
         
         while ( !memresp_val ) @(negedge clk); 
@@ -344,7 +351,6 @@ module top(  input logic clk, input logic linetrace );
         memresp_rdy = 1; 
         @(negedge clk);
 
-        #20;
         $finish();
 
     end
@@ -369,5 +375,13 @@ module top(  input logic clk, input logic linetrace );
         end
     endtask
 
+    initial begin 
+        for (integer i = 0; i < 20000; i++) begin 
+            @(negedge clk);
+        end
+
+        $display("test time exceeded, Terminating"); 
+        $finish();
+    end
 
 endmodule

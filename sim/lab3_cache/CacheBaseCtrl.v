@@ -78,7 +78,7 @@ module lab3_cache_CacheBaseCtrl
     output logic        dirty_wen_1,
     input  logic        is_dirty_1,
 
-    input  logic        flush, 
+    input  logic        inp_flush, 
     output logic        flush_done
 );
     assign cache_req_val = batch_send_ostream_val; 
@@ -93,7 +93,7 @@ module lab3_cache_CacheBaseCtrl
     logic val_0; 
     logic val_1; 
 
-
+    logic flush; 
     logic next_val_0; 
     assign next_val_0 = memreq_val; 
     //----------------------------------------------------------------------
@@ -112,11 +112,11 @@ module lab3_cache_CacheBaseCtrl
         else if ( req_reg_en_0 ) begin 
             val_0 <= next_val_0; 
             request_0 <= memreq_msg; 
-
+            flush <= inp_flush;
         end 
     end
 
-    assign memreq_rdy = val_0 && !stall_0;  
+    assign memreq_rdy = !stall_0;  
 
     logic        msg_type; 
     logic [31:0] msg_addr_0; 
@@ -163,7 +163,7 @@ module lab3_cache_CacheBaseCtrl
         end else begin 
             if ( flush_state == flushing && batch_send_istream_rdy ) flush_counter <= flush_counter_next; 
             else if ( flush_state == no_flush ) flush_counter <= 0; 
-            
+            memreq_state <= memreq_state_next;
             flush_state <= flush_next; 
         end
     end 
@@ -344,7 +344,7 @@ module lab3_cache_CacheBaseCtrl
     assign msg_addr_1 = request_0.addr; 
     assign msg_data_1 = request_0.data;
 
-    assign darray_wen_1 = val_1 && msg_type_1; 
+    assign darray_wen_1 = val_1 && msg_type_1 && flush_state != flushing; 
     assign word_en_sel = msg_type_1; 
 
     assign dirty_wen_1 = val_1 && msg_type_1 && ( flush_state != flushing); 
@@ -353,9 +353,7 @@ module lab3_cache_CacheBaseCtrl
     
     assign memresp_val = val_1;
 
-
-    
-    assign stall_1 = val_1 && ((msg_type_1 && !is_dirty_1) || !memresp_rdy); 
+    assign stall_1 = val_1 && !memresp_rdy; 
 
 endmodule
 

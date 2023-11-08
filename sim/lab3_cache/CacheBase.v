@@ -126,6 +126,7 @@ module lab3_cache_CacheBase
 
   lab3_cache_CacheBaseCtrl ctrl 
   (
+    .inp_flush (flush),
     .* 
   );
 
