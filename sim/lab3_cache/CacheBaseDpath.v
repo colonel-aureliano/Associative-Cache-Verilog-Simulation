@@ -59,8 +59,6 @@ module lab3_cache_CacheBaseDpath
     input  logic        batch_send_addr_sel,
     
     input  mem_resp_4B_t batch_receive_data,
-    //darray write M0 
-    input  logic        darray_write_mux_sel,
 
     // -------------- M1 Stage --------------
     input  logic        req_reg_en_1,
@@ -125,10 +123,10 @@ module lab3_cache_CacheBaseDpath
 
     assign tag0     = req_addr0[31:11]; 
     assign index0   = req_addr0[10:6]; 
-    assign offset0  = req_addr0[5:2]; 
+    assign offset0  = req_addr0[5:2]; // un-used
 
     // -----------------------------------------------------
-    //                      DataArray 
+    //                      Data Array 
     // ----------------------------------------------------
     logic [511:0] darray_rdata_0; 
 
@@ -154,11 +152,13 @@ module lab3_cache_CacheBaseDpath
         .read_addr1  (index1),
         .read_data1  (darray_rdata_1),
 
+        // refill entire cache line from mem
         .write_en0   (darray_wen_0),
         .write_addr0 (index0),
         .write_data0 (darray_wdata_0),
         .write_word_en_0 (write_word_en_all),
 
+        // request to write into cache line
         .write_en1   (darray_wen_1),
         .write_addr1 (index1),
         .write_data1 (darray_wdata_1),
@@ -208,7 +208,7 @@ module lab3_cache_CacheBaseDpath
         .out (tarray_match)
     ); 
 
-    // ------------------ dity bit array ----------------
+    // ------------------ dirty bit array ----------------
 
     
     vc_Regfile_2r2w #(1, 32) dirty_array
@@ -345,7 +345,7 @@ module lab3_cache_CacheBaseDpath
     logic [ 4:0] index1;     // 2kB cache: 2^11 bytes, thus 2^5 lines, and therefore 5 bit index
     logic [ 3:0] offset1;    // 64-byte cache blocks: 2^6 byte and needs 6 bits to represent, 4 bit offset, 2 bit 00
 
-    assign tag1     = req_addr1[31:11]; 
+    assign tag1     = req_addr1[31:11]; // un-used
     assign index1   = req_addr1[10:6]; 
     assign offset1  = req_addr1[5:2]; 
     

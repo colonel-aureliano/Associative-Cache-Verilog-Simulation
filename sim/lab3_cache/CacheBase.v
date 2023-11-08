@@ -44,14 +44,6 @@ module lab3_cache_CacheBase
   output logic                    flush_done
 );
 
-  // assign cache_req_val = memreq_val;
-  // assign memreq_rdy = cache_req_rdy;
-  // assign cache_req_msg = memreq_msg;
-
-  // assign memresp_val = cache_resp_val;
-  // assign cache_resp_rdy = memresp_rdy;
-  // assign memresp_msg = cache_resp_msg;
-
   logic req_reg_en_0; 
   logic darray_wen_0; 
   logic tarray_wen_0; 
@@ -69,7 +61,6 @@ module lab3_cache_CacheBase
   logic batch_receive_istream_rdy; 
   logic batch_receive_ostream_rdy; 
   logic batch_receive_ostream_val; 
-  logic darray_write_mux_sel;
 
   logic req_reg_en_1; 
   logic parallel_read_mux_sel;
@@ -91,6 +82,9 @@ module lab3_cache_CacheBase
     .memreq_msg (memreq_msg),
 
     // ------ M0 stage ----------
+    // Make request to memory if miss
+    // Stall when refilling
+    // On read hit, combined with M1 stage
     .req_reg_en_0 (req_reg_en_0),
     .darray_wen_0 (darray_wen_0) , 
     .tarray_wen_0 (tarray_wen_0) , 
@@ -110,7 +104,9 @@ module lab3_cache_CacheBase
     .batch_receive_ostream_val (batch_receive_ostream_val), 
     .batch_send_addr_sel       (batch_send_addr_sel),
     .batch_receive_data ( cache_resp_msg ), 
-    .darray_write_mux_sel (darray_write_mux_sel),
+    // ------ M1 stage ----------
+    // Write to data array if write request
+    // Make response to processor
     .req_reg_en_1 (req_reg_en_1), 
     .parallel_read_mux_sel (parallel_read_mux_sel),
     .darray_wen_1 (darray_wen_1),  

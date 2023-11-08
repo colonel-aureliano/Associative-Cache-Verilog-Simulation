@@ -61,9 +61,6 @@ module lab3_cache_CacheBaseCtrl
     input  logic        batch_receive_ostream_val,
 
     output logic        batch_send_addr_sel, 
-    
-    //darray write M0 
-    output logic        darray_write_mux_sel,
 
     // -------------- M1 Stage --------------
     output logic        req_reg_en_1,
@@ -115,21 +112,6 @@ module lab3_cache_CacheBaseCtrl
 
     assign memreq_rdy = !stall_0;  
 
-    // Generic Parameters -- yes or no
-
-    localparam n = 1'd0;
-    localparam y = 1'd1;
-
-    // M0 darray write sel
-
-    localparam d0_repl = 0;       // writing duplicated bunch into data array (really should have wen to be 0)
-    localparam d0_mem  = 1;       // writing data received from memory into data array
-
-
-    localparam read_req = 0; 
-    localparam write_req = 1; 
-    // mem_req_4B_t memreq_msg;
-    
     logic        msg_type; 
     logic [31:0] msg_addr_0; 
     logic [31:0] msg_data_0; 
@@ -138,7 +120,7 @@ module lab3_cache_CacheBaseCtrl
     assign msg_data_0 = request_0.data;
     
 
-    // ----------------------- a FSM for eviction and refilling ------------
+    // ----------------------- FSM for eviction and refilling ------------
     localparam no_request = 2'd0; 
     localparam evict_req = 2'd1; 
     localparam refill_req = 2'd2; 
