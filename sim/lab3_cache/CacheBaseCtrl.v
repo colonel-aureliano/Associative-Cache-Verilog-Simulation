@@ -60,6 +60,8 @@ module lab3_cache_CacheBaseCtrl
     output logic        batch_receive_ostream_rdy,
     input  logic        batch_receive_ostream_val,
 
+    output logic        batch_send_addr_sel, 
+    
     //darray write M0 
     output logic        darray_write_mux_sel,
 
@@ -214,7 +216,8 @@ module lab3_cache_CacheBaseCtrl
         input cs_dirty_wdata_0,
         input cs_batch_send_rw, 
         input cs_batch_send_istream_val,
-        input cs_batch_receive_ostream_rdy
+        input cs_batch_receive_ostream_rdy,
+        input cs_batch_send_addr_sel
     );
         begin
             // dirty_wen_0               = cs_dirty_wen_0;
@@ -222,20 +225,24 @@ module lab3_cache_CacheBaseCtrl
             batch_send_rw             = cs_batch_send_rw;
             batch_send_istream_val    = cs_batch_send_istream_val;
             batch_receive_ostream_rdy = cs_batch_receive_ostream_rdy;
+            batch_send_addr_sel       = cs_batch_send_addr_sel; 
         end
     endtask
+
+    localparam tag_addr_sel = 1'd1; 
+    localparam req_addr_sel = 1'd0; 
 
     always @(*) begin
 
         case ( memreq_state )
-            //                                            send      send     receive
-            //                             dirty   dirty istream   istream   ostream
-            //                             wen0   wdata0   rw       val      rdy
-            no_request:                 cs( 0,       0,    0,       0,       0 );
-            evict_req:                  cs( 1,       0,    1,       1,       0 );
-            refill_req:                 cs( 0,       0,    0,       1,       1 );
-            refill_req_done:            cs( 0,       0,    0,       1,       1 );
-            default:                    cs('x,      'x,   'x,       0,       0 );
+            //                                            send      send     receive  send
+            //                             dirty   dirty istream   istream   ostream  addr
+            //                             wen0   wdata0   rw       val      rdy       sel
+            no_request:                 cs( 0,       0,    0,       0,         0,      0 );
+            evict_req:                  cs( 1,       0,    1,       1,         0,      1 );
+            refill_req:                 cs( 0,       0,    0,       1,         1,      0 );
+            refill_req_done:            cs( 0,       0,    0,       0,         1,      0 );
+            default:                    cs('x,      'x,   'x,       0,         0,      0 );
         endcase
 
     end

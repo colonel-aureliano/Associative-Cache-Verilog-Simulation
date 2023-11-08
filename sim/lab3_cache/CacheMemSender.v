@@ -34,7 +34,7 @@ module lab3_cache_CacheMemSender
 
     logic incr_reg_en;
     logic incr_mux_sel;
-    logic rw_reg_en; 
+    logic inp_reg_en; 
 
     logic [31:0] mem_addr; 
     logic [31:0] mem_data; 
@@ -89,46 +89,65 @@ module lab3_cache_CacheMemSender_Dpath
     //---------------------- control inputs ------------
     input  logic         incr_reg_en, 
     input  logic         incr_mux_sel,
-    input  logic         rw_reg_en
+    input  logic         inp_reg_en
 );
     
-    logic [ 25:0] tag; 
-    assign tag = inp_addr[31:6];
-
-    logic [  5:0] offset; 
-    assign offset = inp_addr[5:0]; 
-
-    logic [ 31:0] segmented_data [15:0]; 
-    assign segmented_data[0]  = inp_data[ 31 :  0]; 
-    assign segmented_data[1]  = inp_data[ 63 :  32]; 
-    assign segmented_data[2]  = inp_data[ 95 :  64]; 
-    assign segmented_data[3]  = inp_data[ 127 :  96]; 
-    assign segmented_data[4]  = inp_data[ 159 :  128]; 
-    assign segmented_data[5]  = inp_data[ 191 :  160]; 
-    assign segmented_data[6]  = inp_data[ 223 :  192]; 
-    assign segmented_data[7]  = inp_data[ 255 :  224]; 
-    assign segmented_data[8]  = inp_data[ 287 :  256]; 
-    assign segmented_data[9]  = inp_data[ 319 :  288]; 
-    assign segmented_data[10] = inp_data[ 351 :  320]; 
-    assign segmented_data[11] = inp_data[ 383 :  352]; 
-    assign segmented_data[12] = inp_data[ 415 :  384]; 
-    assign segmented_data[13] = inp_data[ 447 :  416]; 
-    assign segmented_data[14] = inp_data[ 479 :  448]; 
-    assign segmented_data[15] = inp_data[ 511 :  480]; 
-
     //=======================================================================
     //                      keep track of the current rw signal
     //=======================================================================
 
-
+    logic [ 31:0] req_addr; 
+    logic [511:0] req_data;
     vc_EnReg#(1) rw_reg
     (
         .clk   (clk),
         .reset (reset),
-        .en    (rw_reg_en),
+        .en    (inp_reg_en),
         .d     (inp_rw),
         .q     (mem_rw)
     );
+
+    vc_EnReg#(32) addr_reg
+    (
+        .clk   (clk),
+        .reset (reset),
+        .en    (inp_reg_en),
+        .d     (inp_addr),
+        .q     (req_addr)
+    );
+
+    vc_EnReg#(512) data_reg
+    (
+        .clk   (clk),
+        .reset (reset),
+        .en    (inp_reg_en),
+        .d     (inp_data),
+        .q     (req_data)
+    );
+
+    logic [ 25:0] tag; 
+    assign tag = req_addr[31:6];
+
+    logic [  5:0] offset; 
+    assign offset = req_addr[5:0]; 
+
+    logic [ 31:0] segmented_data [15:0]; 
+    assign segmented_data[0]  = req_data[ 31 :  0]; 
+    assign segmented_data[1]  = req_data[ 63 :  32]; 
+    assign segmented_data[2]  = req_data[ 95 :  64]; 
+    assign segmented_data[3]  = req_data[ 127 :  96]; 
+    assign segmented_data[4]  = req_data[ 159 :  128]; 
+    assign segmented_data[5]  = req_data[ 191 :  160]; 
+    assign segmented_data[6]  = req_data[ 223 :  192]; 
+    assign segmented_data[7]  = req_data[ 255 :  224]; 
+    assign segmented_data[8]  = req_data[ 287 :  256]; 
+    assign segmented_data[9]  = req_data[ 319 :  288]; 
+    assign segmented_data[10] = req_data[ 351 :  320]; 
+    assign segmented_data[11] = req_data[ 383 :  352]; 
+    assign segmented_data[12] = req_data[ 415 :  384]; 
+    assign segmented_data[13] = req_data[ 447 :  416]; 
+    assign segmented_data[14] = req_data[ 479 :  448]; 
+    assign segmented_data[15] = req_data[ 511 :  480]; 
 
 
     //=======================================================================
@@ -222,7 +241,7 @@ module lab3_cache_CacheMemSender_Control
     // Ctrl signals 
     output logic incr_mux_sel, 
     output logic incr_reg_en, 
-    output logic rw_reg_en
+    output logic inp_reg_en
 );
 
     //----------------------------------------------------------------------
@@ -244,7 +263,7 @@ module lab3_cache_CacheMemSender_Control
         incr_reg_en <= 0; 
     end
     else begin
-        if ( state_reg == STATE_IDLE) counter <= 5'd0; 
+        if ( state_reg == STATE_IDLE  || state_next == STATE_IDLE ) counter <= 5'd0; 
         if ( state_next == STATE_SEND && state_reg != STATE_SEND ) begin 
             incr_reg_en <= 1; 
             counter <= next_counter; 
@@ -311,7 +330,7 @@ module lab3_cache_CacheMemSender_Control
             ostream_val       = cs_ostream_val;
             // incr_reg_en       = cs_incr_reg_en;
             incr_mux_sel      = cs_incr_mux_sel;
-            rw_reg_en         = cs_rw_reg_en;
+            inp_reg_en         = cs_rw_reg_en;
 
         end
     endtask
@@ -323,8 +342,8 @@ module lab3_cache_CacheMemSender_Control
             //                                  istream ostream reg     mux  
             //                                  rdy        val   en     sel  
             STATE_IDLE:                     cs( 1,         0,    0,   mux_x  , 1);
-            STATE_CALC: if ( counter == 0 ) cs( 1,         0,    1,   mux_inp, 0);
-                        else                cs( 1,         0,    1,   mux_reg, 0);
+            STATE_CALC: if ( counter == 0 ) cs( 0,         0,    1,   mux_inp, 0);
+                        else                cs( 0,         0,    1,   mux_reg, 0);
             STATE_SEND: if ( counter <= 1 ) cs( 0,         1,    0,   mux_inp, 0);
                         else                cs( 0,         1,    0,   mux_reg, 0);
             STATE_DONE:                     cs( 0,         0,   'x,   mux_x  , 0);

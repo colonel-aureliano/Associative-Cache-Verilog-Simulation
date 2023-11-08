@@ -56,6 +56,8 @@ module lab3_cache_CacheBaseDpath
     input  logic        batch_receive_ostream_rdy,
     output logic        batch_receive_ostream_val,
 
+    input  logic        batch_send_addr_sel,
+    
     input  mem_resp_4B_t batch_receive_data,
     //darray write M0 
     input  logic        darray_write_mux_sel,
@@ -234,8 +236,19 @@ module lab3_cache_CacheBaseDpath
 
 
     // ----------------------- Fetch Memory Dpath -------------
+    logic [31:0] tag_addr; 
+    logic [31:0] batch_send_addr_res;
+    
+    assign tag_addr = {tarray_rdata_0, index0, 6'd0};
+    vc_Mux2#(32) batch_send_addr_mux
+    (
+        .in0 (req_addr0), 
+        .in1 (tag_addr), 
+        .sel (batch_send_addr_sel), 
+        .out (batch_send_addr_res)
+    ); 
     logic [31:0] sender_inp_addr; 
-    assign sender_inp_addr = {tarray_rdata_0, index0, 6'd0} ;  //z6b
+    assign sender_inp_addr = batch_send_addr_res & 32'hFFFFFFC0;  //z6b
 
     lab3_cache_CacheMemSender batch_sender 
     (

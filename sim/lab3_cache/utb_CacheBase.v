@@ -164,6 +164,7 @@ module top(  input logic clk, input logic linetrace );
         cache_req_rdy = 0; 
         for (integer i = 0; i < 16; i++) begin 
             // should get 16 write requests to the memory 
+            $display("iteration: %d", i);
 
             @(negedge clk);
             while ( !cache_req_val ) @(negedge clk); 
@@ -172,7 +173,20 @@ module top(  input logic clk, input logic linetrace );
             assertion("write addr: ", holder + i * 4, cache_req_msg.addr);
             cache_req_rdy = 1; 
             @(negedge clk); 
+        end
 
+        // should geet 16 read reqeusts to the memory 
+        cache_req_rdy = 0; 
+        holder = {21'd7, 5'd2, 6'd0}; 
+        for (integer i = 0; i < 16; i++) begin 
+            $display("iteration: %d", i);
+            @(negedge clk);
+            while ( !cache_req_val ) @(negedge clk); 
+            
+            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
+            assertion("read addr: ", holder + i * 4, cache_req_msg.addr);
+            cache_req_rdy = 1; 
+            @(negedge clk); 
         end
 
         #20;

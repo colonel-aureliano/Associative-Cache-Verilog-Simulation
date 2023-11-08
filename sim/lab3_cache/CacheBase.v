@@ -64,6 +64,7 @@ module lab3_cache_CacheBase
   logic batch_send_ostream_val; 
   logic batch_send_ostream_rdy; 
   logic batch_send_rw; 
+  logic batch_send_addr_sel;
   logic batch_receive_istream_val; 
   logic batch_receive_istream_rdy; 
   logic batch_receive_ostream_rdy; 
@@ -107,6 +108,7 @@ module lab3_cache_CacheBase
     .batch_receive_istream_rdy (batch_receive_istream_rdy), 
     .batch_receive_ostream_rdy (batch_receive_ostream_rdy), 
     .batch_receive_ostream_val (batch_receive_ostream_val), 
+    .batch_send_addr_sel       (batch_send_addr_sel),
     .batch_receive_data ( cache_resp_msg ), 
     .darray_write_mux_sel (darray_write_mux_sel),
     .req_reg_en_1 (req_reg_en_1), 
