@@ -28,6 +28,11 @@ module lab3_cache_CacheBaseDpath
     // ------ M0 stage ----------
     input  logic        req_reg_en_0,
 
+    // flushing logic 
+    input  logic        idx0_mux_sel, 
+    input  logic        idx0_incr_reg_en, 
+    input  logic        idx_incr_mux_sel,
+
     // data array 
     input logic         darray_wen_0,
 
@@ -117,13 +122,46 @@ module lab3_cache_CacheBaseDpath
     );
 
     logic [20:0] tag0;       // 32 - 5 - 6 bit tag
-    logic [ 4:0] index0;     // 2kB cache: 2^11 bytes, thus 2^5 lines, and therefore 5 bit index
+    logic [ 4:0] req_idx0;     // 2kB cache: 2^11 bytes, thus 2^5 lines, and therefore 5 bit index
     logic [ 3:0] offset0;    // 64-byte cache blocks: 2^6 byte and needs 6 bits to represent, 4 bit offset, 2 bit 00
     // tag: 21 bit  index: 5 bit    offset: 4 bit   00: 2bit
 
     assign tag0     = req_addr0[31:11]; 
-    assign index0   = req_addr0[10:6]; 
+    assign req_idx0 = req_addr0[10:6]; 
     assign offset0  = req_addr0[5:2]; // un-used
+
+    logic [ 4:0] index0; 
+
+    logic [ 4:0] incr_idx; 
+    vc_Mux2#(5) idx0_mux 
+    (
+        .in0 ( req_idx0 ), 
+        .in1 ( incr_idx ), 
+        .sel ( idx0_mux_sel ), 
+        .out (index0)
+    );
+
+    logic [ 4:0] next_idx_incr; 
+    logic [ 4:0] idx; 
+    vc_EnResetReg#(5) idx_incr_reg
+    (
+        .clk    (clk),
+        .reset  (reset),
+        .en     (idx0_incr_reg_en),
+        .d      (next_idx_incr),
+        .q      (idx)
+    );
+
+    vc_Mux2#(5) idx_incr_mux
+    (
+        .in0 ( 5'd0 ), 
+        .in1 ( idx ), 
+        .sel ( idx_incr_mux_sel ), 
+        .out ( incr_idx )
+    );
+
+    assign next_idx_incr = incr_idx + 1; 
+
 
     // -----------------------------------------------------
     //                      Data Array 

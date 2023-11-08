@@ -34,6 +34,10 @@ module lab3_cache_CacheBaseCtrl
     // -------------------- M0 stage ----------------------
     output logic        req_reg_en_0,
 
+    output logic        idx0_mux_sel, 
+    output logic        idx0_incr_reg_en, 
+    output logic        idx_incr_mux_sel,
+
     // data array 
     output logic        darray_wen_0,
 
@@ -72,8 +76,10 @@ module lab3_cache_CacheBaseCtrl
     // dirty array
     output logic        dirty_wdata_1,
     output logic        dirty_wen_1,
-    input  logic        is_dirty_1
+    input  logic        is_dirty_1,
 
+    input  logic        flush, 
+    output logic        flush_done
 );
     assign cache_req_val = batch_send_ostream_val; 
     assign batch_send_ostream_rdy = cache_req_rdy; 
@@ -136,17 +142,34 @@ module lab3_cache_CacheBaseCtrl
     assign darray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
     assign dirty_wen_0 = val_0 && memreq_state == evict_req; 
 
+
+    localparam no_flush   = 2'd0; 
+    localparam flushing   = 2'd1; 
+    localparam flush_fin  = 2'd2; 
+    logic [1:0] flush_state; 
+    logic [1:0] flush_next; 
+    logic [4:0] flush_counter; 
+    logic [4:0] flush_counter_next; 
+    assign      flush_counter_next  = flush_counter + 1; 
+
     always_ff @(posedge clk) begin 
         if ( reset ) begin 
             memreq_state <= no_request; 
-        end else begin 
+            flush_state <= no_flush; 
+            flush_counter <= 0; 
+        end else if (!flush) begin 
             if (memreq_state_next == evict_req) dirty_wdata_0 <= 0; 
             memreq_state <= memreq_state_next; 
+        end else begin 
+            if ( flush_state == flushing && batch_send_istream_rdy ) flush_counter <= flush_counter_next; 
+            else if ( flush_state == no_flush ) flush_counter <= 0; 
+            
+            flush_state <= flush_next; 
         end
     end 
 
     always_comb begin 
-        if ( val_0 && !tarray_match && is_dirty_0 )  begin 
+        if ( val_0 && !tarray_match && is_dirty_0 && !flush )  begin 
             // need to evict
             if ( memreq_state == no_request ) begin 
                 memreq_state_next = evict_req; 
@@ -162,8 +185,10 @@ module lab3_cache_CacheBaseCtrl
                 memreq_state_next = no_request;
                 $stop(); 
             end
+
+            flush_next = no_flush; 
         end 
-        else if ( val_0 && !tarray_match ) begin 
+        else if ( val_0 && !tarray_match  && !flush ) begin 
             // need to refill 
             if ( memreq_state == no_request ) begin 
                 // before starting refill
@@ -186,8 +211,19 @@ module lab3_cache_CacheBaseCtrl
                 $stop() ;
             end
 
-        end else begin 
+            flush_next = no_flush;
+        end 
+        else if ( flush ) begin 
+            // flushing we want to stay in evict, increment index
+            if (val_0 && flush_state == no_flush ) flush_next = flush_state; 
+            else if ( val_0 && flush_state == flushing && flush_counter < 31) flush_next = flushing; 
+            else if ( val_0 && flush_state == flushing ) flush_next = flush_fin; 
+            else if (val_0 && flush_state == flush_fin ) flush_next = no_flush;
+            else flush_next = no_flush;  
+        end
+        else begin 
             memreq_state_next = no_request; 
+            flush_next       = no_flush; 
         end
     end    
 
@@ -199,7 +235,12 @@ module lab3_cache_CacheBaseCtrl
         input cs_batch_send_rw, 
         input cs_batch_send_istream_val,
         input cs_batch_receive_ostream_rdy,
-        input cs_batch_send_addr_sel
+        input cs_batch_send_addr_sel, 
+
+        input cs_flush_done,
+        input cs_idx0_mux_sel,
+        input cs_idx0_incr_reg_en,
+        input cs_idx_incr_mux_sel
     );
         begin
             // dirty_wen_0               = cs_dirty_wen_0;
@@ -208,24 +249,44 @@ module lab3_cache_CacheBaseCtrl
             batch_send_istream_val    = cs_batch_send_istream_val;
             batch_receive_ostream_rdy = cs_batch_receive_ostream_rdy;
             batch_send_addr_sel       = cs_batch_send_addr_sel; 
+            flush_done                = cs_flush_done;
+            idx0_mux_sel              = cs_idx0_mux_sel;
+            idx0_incr_reg_en          = cs_idx0_incr_reg_en;
+            idx_incr_mux_sel          = cs_idx_incr_mux_sel;
         end
     endtask
 
     localparam tag_addr_sel = 1'd1; 
     localparam req_addr_sel = 1'd0; 
 
+    logic flush_incr_sel; 
+    assign flush_incr_sel = flush_counter == 0; 
     always @(*) begin
+        if ( !flush ) begin 
+            case ( memreq_state )
+                //                                            send      send     receive  send         idx   idx    idx
+                //                             dirty   dirty istream   istream   ostream  addr  flush  mux   incr   incr
+                //                             wen0   wdata0   rw       val      rdy       sel   done  sel  reg en mux sel
+                no_request:                 cs( 0,       0,    0,       0,         0,      0,     0,    0,    0,     0);
+                evict_req:                  cs( 1,       0,    1,       1,         0,      1,     0,    0,    0,     0);
+                refill_req:                 cs( 0,       0,    0,       1,         1,      0,     0,    0,    0,     0);
+                refill_req_done:            cs( 0,       0,    0,       0,         1,      0,     0,    0,    0,     0);
+                default:                    cs('x,      'x,   'x,       0,         0,      0,     0,    0,    0,     0);
+            endcase
+        end
+        else begin 
+            case ( flush_state )
+                //                                                           send      send     receive  send         idx   idx        idx
+                //                                            dirty   dirty istream   istream   ostream  addr  flush  mux   incr       incr
+                //                                            wen0   wdata0   rw       val      rdy       sel   done  sel  reg en     mux sel
+                no_flush:                                  cs( 0,       0,    1,       0,         0,      0,     0,    0,    0,         0);
+                flushing:  if ( batch_send_istream_rdy )   cs( 1,       0,    1,       1,         0,      1,     0,    1,    1,     flush_incr_sel);
+                           else                            cs( 0,       0,    1,       1,         0,      1,     0,    1,    0,     flush_incr_sel);
+                flush_fin:                                 cs( 0,       0,    1,       0,         0,      1,     1,    0,    0,         0);
+                default:                                   cs('x,      'x,   'x,       0,         0,      0,     0,    0,    0,         0);
+            endcase
 
-        case ( memreq_state )
-            //                                            send      send     receive  send
-            //                             dirty   dirty istream   istream   ostream  addr
-            //                             wen0   wdata0   rw       val      rdy       sel
-            no_request:                 cs( 0,       0,    0,       0,         0,      0 );
-            evict_req:                  cs( 1,       0,    1,       1,         0,      1 );
-            refill_req:                 cs( 0,       0,    0,       1,         1,      0 );
-            refill_req_done:            cs( 0,       0,    0,       0,         1,      0 );
-            default:                    cs('x,      'x,   'x,       0,         0,      0 );
-        endcase
+        end
 
     end
 

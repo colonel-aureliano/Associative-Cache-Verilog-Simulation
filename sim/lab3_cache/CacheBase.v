@@ -45,6 +45,10 @@ module lab3_cache_CacheBase
 );
 
   logic req_reg_en_0; 
+  logic idx0_mux_sel;
+  logic idx0_incr_reg_en;
+  logic idx_incr_mux_sel;
+
   logic darray_wen_0; 
   logic tarray_wen_0; 
   logic tarray_match; 
@@ -86,6 +90,9 @@ module lab3_cache_CacheBase
     // Stall when refilling
     // On read hit, combined with M1 stage
     .req_reg_en_0 (req_reg_en_0),
+    .idx0_mux_sel (idx0_mux_sel),
+    .idx0_incr_reg_en (idx0_incr_reg_en),
+    .idx_incr_mux_sel (idx_incr_mux_sel),
     .darray_wen_0 (darray_wen_0) , 
     .tarray_wen_0 (tarray_wen_0) , 
     .tarray_match (tarray_match) ,
