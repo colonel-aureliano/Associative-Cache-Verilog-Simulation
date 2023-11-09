@@ -27,7 +27,7 @@ module lab3_cache_CacheBaseDpath
 
     // ------ M0 stage ----------
     input  logic        req_reg_en,
-
+    input  logic        req_mux_sel,
     // flushing logic 
     input  logic        index_mux_sel, 
     input  logic        index_incr_reg_en, 
@@ -78,45 +78,33 @@ module lab3_cache_CacheBaseDpath
     output mem_resp_4B_t memresp_msg
 
 );
-
-    logic [31:0] next_req_addr; 
-    logic [31:0] next_req_data; 
-    
-    assign next_req_addr = memreq_msg.addr; 
-    assign next_req_data = memreq_msg.data; 
-
     //-----------------------------------------------------------------------
     // M0 Stage
     //-----------------------------------------------------------------------
     logic [31:0] req_addr; 
     logic [31:0] req_data; 
     mem_req_4B_t req_msg; 
-    vc_EnResetReg#(32) req_addr_reg
-    (
-        .clk    (clk),
-        .reset  (reset),
-        .en     (req_reg_en),
-        .d      (next_req_addr),
-        .q      (req_addr)
-    );
 
-    vc_EnResetReg#(32) req_data_reg
-    (
-        .clk    (clk),
-        .reset  (reset),
-        .en     (req_reg_en),
-        .d      (next_req_data),
-        .q      (req_data)
-    );
+    mem_req_4B_t store_req; 
 
     vc_EnResetReg#(77) req_msg_reg
     (
         .clk    (clk),
         .reset  (reset),
         .en     (req_reg_en),
-        .d      (memreq_msg),
-        .q      (req_msg)
+        .d      (req_msg),
+        .q      (store_req)
     );
+
+    vc_Mux2#(77) req_mux 
+    (
+        .in0 (memreq_msg), 
+        .in1 (store_req), 
+        .sel (req_mux_sel), 
+        .out (req_msg)
+    ); 
+    assign req_addr = req_msg.addr;
+    assign req_data = req_msg.data; 
 
     logic [20:0] tag;       // 32 - 5 - 6 bit tag
     logic [ 4:0] req_idx;     // 2kB cache: 2^11 bytes, thus 2^5 lines, and therefore 5 bit index
@@ -333,8 +321,6 @@ module lab3_cache_CacheBaseDpath
     //                           M1 stage 
     // ==========================================================================
     
-    mem_req_4B_t req_msg1; 
-
     assign darray_wdata_1 = repl_unit_out;
 
     logic [15:0] word_en_one_hot; 
@@ -384,7 +370,7 @@ module lab3_cache_CacheBaseDpath
     ); 
 
 
-    assign memresp_msg = {req_msg1.type_, 8'b0, 2'b0, 2'b0, cache_resp_data};
+    assign memresp_msg = {req_msg.type_, 8'b0, 2'b0, 2'b0, cache_resp_data};
 endmodule
 
 

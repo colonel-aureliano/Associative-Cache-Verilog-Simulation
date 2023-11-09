@@ -45,6 +45,7 @@ module lab3_cache_CacheBase
 );
 
   logic req_reg_en; 
+  logic req_mux_sel;
   logic index_mux_sel;
   logic index_incr_reg_en;
   logic idx_incr_mux_sel;
@@ -86,6 +87,7 @@ module lab3_cache_CacheBase
     // Stall when refilling
     // On read hit, combined with M1 stage
     .req_reg_en (req_reg_en),
+    .req_mux_sel (req_mux_sel),
     .index_mux_sel (index_mux_sel),
     .index_incr_reg_en (index_incr_reg_en),
     .idx_incr_mux_sel (idx_incr_mux_sel),

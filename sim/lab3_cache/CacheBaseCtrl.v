@@ -33,6 +33,7 @@ module lab3_cache_CacheBaseCtrl
 
     // -------------------- M0 stage ----------------------
     output logic        req_reg_en,
+    output logic        req_mux_sel, 
 
     output logic        index_mux_sel, 
     output logic        index_incr_reg_en, 
@@ -89,8 +90,8 @@ module lab3_cache_CacheBaseCtrl
     logic val; 
 
     logic flush; 
-    logic next_val; 
-    assign next_val = memreq_val; 
+    // logic next_val; 
+    // assign next_val = memreq_val; 
     //----------------------------------------------------------------------
     // M0 stage
     //----------------------------------------------------------------------
@@ -98,17 +99,24 @@ module lab3_cache_CacheBaseCtrl
     // Register enable logic
 
     assign req_reg_en = !stall; 
-    
+    assign req_mux_sel = stall; 
+
+    mem_req_4B_t store_request;
     mem_req_4B_t request;
     always_ff @( posedge clk ) begin 
         if ( reset ) begin 
-            val <= 1'b0; 
+            // val <= 1'b0; 
         end 
         else if ( req_reg_en ) begin 
-            val <= next_val; 
-            request <= memreq_msg; 
+            // val <= next_val; 
+            store_request <= memreq_msg; 
             flush <= inp_flush;
         end 
+    end
+    
+    always_comb begin 
+        if (stall) request = store_request; 
+        else request = memreq_msg; 
     end
 
     assign memreq_rdy = !stall;  
@@ -130,12 +138,12 @@ module lab3_cache_CacheBaseCtrl
     logic [1:0] memreq_state_next; 
 
     logic       wait_refill; 
-    assign wait_refill = val && !tarray_match; 
+    assign wait_refill = !tarray_match; 
 
 
-    assign tarray_wen_0 = val && memreq_state == refill_req_done && memreq_state_next == no_request;
-    assign darray_wen_0 = val && memreq_state == refill_req_done && memreq_state_next == no_request;
-    assign dirty_wen_0 = val && (memreq_state == evict_req || (flush_state == flushing && is_dirty_0)); 
+    assign tarray_wen_0 = memreq_state == refill_req_done && memreq_state_next == no_request;
+    assign darray_wen_0 = memreq_state == refill_req_done && memreq_state_next == no_request;
+    assign dirty_wen_0 = (memreq_state == evict_req || (flush_state == flushing && is_dirty_0)); 
 
 
     localparam no_flush   = 2'd0; 
@@ -164,55 +172,25 @@ module lab3_cache_CacheBaseCtrl
     end 
 
     always_comb begin 
-        if ( val && !tarray_match && is_dirty_0 && !flush )  begin 
-            // need to evict
-            flush_next = no_flush; 
-            if ( memreq_state == no_request ) begin 
-                memreq_state_next = evict_req; 
-            end 
-            else if ( memreq_state == evict_req) begin 
-                if ( batch_send_istream_rdy ) begin 
-                    memreq_state_next = refill_req; 
-                end 
-                else begin 
-                    memreq_state_next = evict_req; 
-                end
-            end else begin 
-                memreq_state_next = no_request;
-                flush_next = no_flush;
-                $stop(); 
-            end
-
-        end 
-        else if ( val && !tarray_match  && !flush ) begin 
-            flush_next = no_flush;
-            // need to refill 
-            if ( memreq_state == no_request ) begin 
-                // before starting refill
-                memreq_state_next = refill_req; 
-            end 
-            else if ( memreq_state == refill_req ) begin 
-                // waiting to send refill requests, wait until batch send is ready
-                if ( batch_send_istream_rdy ) begin 
-                    memreq_state_next = refill_req_done;
-                end 
-                else begin 
-                    memreq_state_next = refill_req; 
-                end 
-            end else if (memreq_state == refill_req_done ) begin 
-                // waiting until batch_receive is done; 
-                if ( batch_receive_ostream_val ) memreq_state_next = no_request; 
-                else memreq_state_next = refill_req_done; 
-            end else begin 
+        if ( memreq_val && memreq_state == no_request && flush_state == no_flush) begin 
+            // enter states 
+            if ( flush ) begin 
+                flush_next = flushing; 
                 memreq_state_next = no_request; 
+            end else if ( !tarray_match && is_dirty_0 ) begin 
+                memreq_state_next = evict_req; 
+                flush_next = no_flush; 
+            end else if ( !tarray_match ) begin 
+                memreq_state_next = refill_req; 
                 flush_next = no_flush;
-                $stop() ;
+            end else begin 
+                flush_next = no_flush; 
+                memreq_state_next = no_request; 
             end
-        end 
-        else if ( val && flush ) begin 
-            // $display("get in flushing"); 
-            // flushing we want to stay in evict, increment index
+        end else if ( flush_state == flushing ) begin 
+            // if currently flushing 
             memreq_state_next = no_request;
+
             if (flush_state == no_flush ) begin 
                 flush_next = flushing; 
             end
@@ -227,10 +205,31 @@ module lab3_cache_CacheBaseCtrl
                 // $display("possible no flush 2");
                 flush_next = no_flush;  
             end
-        end
-        else begin 
+        end else if ( memreq_state == evict_req ) begin 
+            flush_next = no_flush; 
+            if ( batch_send_istream_rdy ) begin 
+                memreq_state_next = refill_req; 
+            end 
+            else begin 
+                memreq_state_next = evict_req; 
+            end
+
+        end else if (memreq_state == refill_req) begin 
+            flush_next = no_flush; 
+            if ( batch_send_istream_rdy ) begin 
+                memreq_state_next = refill_req_done;
+            end 
+            else begin 
+                memreq_state_next = refill_req; 
+            end 
+        end else if (memreq_state == refill_req_done ) begin 
+            // waiting until batch_receive is done; 
+            flush_next = no_flush; 
+            if ( batch_receive_ostream_val ) memreq_state_next = no_request; 
+            else memreq_state_next = refill_req_done; 
+        end  else begin 
+            flush_next = no_flush; 
             memreq_state_next = no_request; 
-            flush_next       = no_flush; 
         end
     end    
 
@@ -297,7 +296,7 @@ module lab3_cache_CacheBaseCtrl
 
     end
 
-    assign stall = val && (memreq_state != no_request || flush_state != no_flush || !memresp_rdy); 
+    assign stall = memreq_state != no_request || flush_state != no_flush || !memresp_rdy; 
 
     //----------------------------------------------------------------------
     // M1 stage
@@ -306,12 +305,12 @@ module lab3_cache_CacheBaseCtrl
     // Register enable logic
 
 
-    assign darray_wen_1 = val && msg_type && memreq_state == no_request && flush_state == no_flush; 
+    assign darray_wen_1 = msg_type && memreq_state == no_request && flush_state == no_flush && tarray_match; 
 
-    assign dirty_wen_1 = val && msg_type && ( flush_state != flushing); 
+    assign dirty_wen_1 = msg_type && flush_state == no_flush && memreq_state == no_request && tarray_match; 
     assign dirty_wdata_1 = msg_type; 
 
-    assign memresp_val = val && memreq_state == no_request && flush_state == no_flush;
+    assign memresp_val = memreq_state == no_request && flush_state == no_flush && tarray_match;
 
 endmodule
 

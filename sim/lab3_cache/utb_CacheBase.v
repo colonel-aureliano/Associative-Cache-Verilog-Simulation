@@ -127,9 +127,7 @@ module top(  input logic clk, input logic linetrace );
         // ====================================================================
         $display("========================write tag 15, index 2, and offset 1===================");
 
-
-        memresp_rdy = 0;
-
+        
         memreq_val = 1; 
         memreq_msg = {`VC_MEM_RESP_MSG_TYPE_WRITE, 8'd0, 21'd15, 5'd2, 4'd3, 2'd00, 2'd0, 32'hDEADBEEF}; // write request with tag 15, index 2, and offset 3
         
@@ -141,9 +139,9 @@ module top(  input logic clk, input logic linetrace );
         assertion("dirty: ", 32'd1, {31'd0, DUT.dpath.dirty_array.rfile[2]}); 
 
         memresp_rdy = 1; 
+        memreq_val = 0; 
         @(negedge clk);
 
-        $finish();
         // ====================================================================
         //          write on mismatching tag, evict, refill, make dirty
         // ====================================================================
@@ -220,8 +218,6 @@ module top(  input logic clk, input logic linetrace );
         end
 
         @(negedge clk); 
-
-        @(negedge clk); 
         assertion512("new data", {32'h0,32'h1,32'h2,32'h3,32'h4,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[2]); 
         assertion("dirty: ", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[2]}); 
         assertion("tag: ", {11'd0, 21'd7}, {11'd0, DUT.dpath.tag_array.rfile[2]});
@@ -231,6 +227,7 @@ module top(  input logic clk, input logic linetrace );
         assertion("dirty: ", 32'd1, {31'd0, DUT.dpath.dirty_array.rfile[2]});
         
         memresp_rdy = 1; 
+        memreq_val = 0; 
         @(negedge clk);
 
         // ====================================================================
@@ -283,8 +280,14 @@ module top(  input logic clk, input logic linetrace );
             @(negedge clk);
         end
 
+        assertion512("new data from write", {32'h0,32'h1,32'h2,32'h3,32'hDEADBEEF,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[5]); 
+        assertion("tag: ", {11'd0, 21'd9}, {11'd0, DUT.dpath.tag_array.rfile[5]});
+        
 
+        memresp_rdy = 1; 
+        memreq_val = 0; 
 
+        @(negedge clk); 
         // ==================================================================
         //                     flush test 
         // ==================================================================
@@ -339,19 +342,9 @@ module top(  input logic clk, input logic linetrace );
             $display("iteration %d", i);
             assertion("not dirty: ", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[i]});
         end
-
-
-        assertion512("new data from previous write", {32'h0,32'h1,32'h2,32'h3,32'hDEADBEEF,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[5]); 
-        assertion("tag: ", {11'd0, 21'd9}, {11'd0, DUT.dpath.tag_array.rfile[5]});
         
-        while ( !memresp_val ) @(negedge clk); 
-        @(negedge clk);
-        
-        memresp_rdy = 1; 
-        @(negedge clk);
 
         $finish();
-
     end
   
     task assertion( string varname, [31:0] expected, [31:0] actual ); 
