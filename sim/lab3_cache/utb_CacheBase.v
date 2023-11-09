@@ -99,6 +99,7 @@ module top(  input logic clk, input logic linetrace );
         @(negedge clk); 
         @(negedge clk); 
         memreq_val = 0; 
+        memresp_rdy = 0; 
         for (integer i = 0; i < 16; i++) begin 
             // writing in value for the refill
             assign holder = i; 
@@ -111,31 +112,29 @@ module top(  input logic clk, input logic linetrace );
             cache_resp_val = 0; 
             @(negedge clk);
         end
-        @(negedge clk); 
-        
-        assertion512("new data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'h3,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[2]); 
 
         @(negedge clk); 
-        while ( memresp_val ) @(negedge clk); 
+        assertion("same cycle val", 32'd1, {31'd0, memresp_val});
+        assertion512("new data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'h3,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[2]); 
 
         assertion("mem resp output: ", 32'd1, memresp_msg.data);
         
         memresp_rdy = 1; 
         @(negedge clk); 
         
-
         // ====================================================================
-        //                      write on matching tag, and make dirty
+        //       write on matching tag, and make dirty, should be same cycle
         // ====================================================================
         $display("========================write tag 15, index 2, and offset 1===================");
 
-        memresp_rdy = 1;
+
+        memresp_rdy = 0;
 
         memreq_val = 1; 
         memreq_msg = {`VC_MEM_RESP_MSG_TYPE_WRITE, 8'd0, 21'd15, 5'd2, 4'd3, 2'd00, 2'd0, 32'hDEADBEEF}; // write request with tag 15, index 2, and offset 3
         
-        while (!memresp_val) @(negedge clk);                
-        @(negedge clk); 
+        #0.5; 
+        assertion("assert single cycle valid", 32'd1, {31'd0, memresp_val}); 
         @(negedge clk);
         assertion512("new data: ", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'hDEADBEEF,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[2]); 
 
@@ -144,7 +143,7 @@ module top(  input logic clk, input logic linetrace );
         memresp_rdy = 1; 
         @(negedge clk);
 
-
+        $finish();
         // ====================================================================
         //          write on mismatching tag, evict, refill, make dirty
         // ====================================================================

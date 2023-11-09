@@ -26,11 +26,11 @@ module lab3_cache_CacheBaseDpath
     input  mem_req_4B_t memreq_msg,
 
     // ------ M0 stage ----------
-    input  logic        req_reg_en_0,
+    input  logic        req_reg_en,
 
     // flushing logic 
-    input  logic        idx0_mux_sel, 
-    input  logic        idx0_incr_reg_en, 
+    input  logic        index_mux_sel, 
+    input  logic        index_incr_reg_en, 
     input  logic        idx_incr_mux_sel,
 
     // data array 
@@ -66,11 +66,8 @@ module lab3_cache_CacheBaseDpath
     input  mem_resp_4B_t batch_receive_data,
 
     // -------------- M1 Stage --------------
-    input  logic        req_reg_en_1,
-    input  logic        parallel_read_mux_sel,
     // data array: 
     input  logic        darray_wen_1,
-    input  logic        word_en_sel,
 
     // dirty array
     input  logic        dirty_wdata_1,
@@ -91,54 +88,56 @@ module lab3_cache_CacheBaseDpath
     //-----------------------------------------------------------------------
     // M0 Stage
     //-----------------------------------------------------------------------
-    logic [31:0] req_addr0; 
-    logic [31:0] req_data0; 
-    mem_req_4B_t req_msg0; 
-    vc_EnResetReg#(32) req_addr0_reg
+    logic [31:0] req_addr; 
+    logic [31:0] req_data; 
+    mem_req_4B_t req_msg; 
+    vc_EnResetReg#(32) req_addr_reg
     (
         .clk    (clk),
         .reset  (reset),
-        .en     (req_reg_en_0),
+        .en     (req_reg_en),
         .d      (next_req_addr),
-        .q      (req_addr0)
+        .q      (req_addr)
     );
 
-    vc_EnResetReg#(32) req_data0_reg
+    vc_EnResetReg#(32) req_data_reg
     (
         .clk    (clk),
         .reset  (reset),
-        .en     (req_reg_en_0),
+        .en     (req_reg_en),
         .d      (next_req_data),
-        .q      (req_data0)
+        .q      (req_data)
     );
 
-    vc_EnResetReg#(77) req_msg0_reg
+    vc_EnResetReg#(77) req_msg_reg
     (
         .clk    (clk),
         .reset  (reset),
-        .en     (req_reg_en_0),
+        .en     (req_reg_en),
         .d      (memreq_msg),
-        .q      (req_msg0)
+        .q      (req_msg)
     );
 
-    logic [20:0] tag0;       // 32 - 5 - 6 bit tag
-    logic [ 4:0] req_idx0;     // 2kB cache: 2^11 bytes, thus 2^5 lines, and therefore 5 bit index
-    logic [ 3:0] offset0;    // 64-byte cache blocks: 2^6 byte and needs 6 bits to represent, 4 bit offset, 2 bit 00
+    logic [20:0] tag;       // 32 - 5 - 6 bit tag
+    logic [ 4:0] req_idx;     // 2kB cache: 2^11 bytes, thus 2^5 lines, and therefore 5 bit index
+    logic [ 3:0] offset;    // 64-byte cache blocks: 2^6 byte and needs 6 bits to represent, 4 bit offset, 2 bit 00
     // tag: 21 bit  index: 5 bit    offset: 4 bit   00: 2bit
 
-    assign tag0     = req_addr0[31:11]; 
-    assign req_idx0 = req_addr0[10:6]; 
-    assign offset0  = req_addr0[5:2]; // un-used
+    assign tag     = req_addr[31:11]; 
+    assign req_idx = req_addr[10:6]; 
+    assign offset  = req_addr[5:2]; // un-used
 
-    logic [ 4:0] index0; 
+
+    // ---------------------------- index incrementer for flushing ---------------------
+    logic [ 4:0] index; 
 
     logic [ 4:0] incr_idx; 
-    vc_Mux2#(5) idx0_mux 
+    vc_Mux2#(5) index_mux 
     (
-        .in0 ( req_idx0 ), 
+        .in0 ( req_idx ), 
         .in1 ( incr_idx ), 
-        .sel ( idx0_mux_sel ), 
-        .out (index0)
+        .sel ( index_mux_sel ), 
+        .out (index)
     );
 
     logic [ 4:0] next_idx_incr; 
@@ -147,7 +146,7 @@ module lab3_cache_CacheBaseDpath
     (
         .clk    (clk),
         .reset  (reset),
-        .en     (idx0_incr_reg_en),
+        .en     (index_incr_reg_en),
         .d      (next_idx_incr),
         .q      (idx)
     );
@@ -184,21 +183,21 @@ module lab3_cache_CacheBaseDpath
         .clk          (clk),
         .reset        (reset),
 
-        .read_addr0  (index0),
+        .read_addr0  (index),
         .read_data0  (darray_rdata_0),
  
-        .read_addr1  (index1),
+        .read_addr1  (index),
         .read_data1  (darray_rdata_1),
 
         // refill entire cache line from mem
         .write_en0   (darray_wen_0),
-        .write_addr0 (index0),
+        .write_addr0 (index),
         .write_data0 (darray_wdata_0),
         .write_word_en_0 (write_word_en_all),
 
         // request to write into cache line
         .write_en1   (darray_wen_1),
-        .write_addr1 (index1),
+        .write_addr1 (index),
         .write_data1 (darray_wdata_1),
         .write_word_en_1 (darray_wdata_word_en_1)
 
@@ -214,7 +213,7 @@ module lab3_cache_CacheBaseDpath
     logic [20:0] tarray_wdata_0; 
 
     
-    // Want to read the tag at index0 cache line, and compare its tag to current tag
+    // Want to read the tag at index cache line, and compare its tag to current tag
     // if the cache stored tag is not same as the request tag, it's a miss
     // if miss, then evict and refill
     // only possible modification to tag is evict and refill, thus write address and write data is index and tag
@@ -223,15 +222,15 @@ module lab3_cache_CacheBaseDpath
         .clk         (clk),
         .reset       (reset),
 
-        .read_addr0  (index0),
+        .read_addr0  (index),
         .read_data0  (tarray_rdata_0),
 
-        .read_addr1  (index1),
+        .read_addr1  (index),
         .read_data1  (tarray_rdata_1),
 
         .write_en0   (tarray_wen_0),
-        .write_addr0 (index0),
-        .write_data0 (tag0),
+        .write_addr0 (index),
+        .write_data0 (tag),
 
         .write_en1   (), // TODO: DOUBLE CHECK
         .write_addr1 (),
@@ -242,7 +241,7 @@ module lab3_cache_CacheBaseDpath
     vc_EqComparator #(21) tag_eq 
     (
         .in0 (tarray_rdata_0),
-        .in1 (tag0),
+        .in1 (tag),
         .out (tarray_match)
     ); 
 
@@ -256,18 +255,18 @@ module lab3_cache_CacheBaseDpath
         .clk         (clk),
         .reset       (reset),
 
-        .read_addr0  (index0),
+        .read_addr0  (index),
         .read_data0  (is_dirty_0),
 
-        .read_addr1  (index1),
+        .read_addr1  (index),
         .read_data1  (is_dirty_1),                // TODO: DOUBLE CHECK
 
         .write_en0   (dirty_wen_0),
-        .write_addr0 (index0),
+        .write_addr0 (index),
         .write_data0 (dirty_wdata_0),
 
         .write_en1   (dirty_wen_1),
-        .write_addr1 (index1),
+        .write_addr1 (index),
         .write_data1 (dirty_wdata_1)
 
     );
@@ -277,10 +276,10 @@ module lab3_cache_CacheBaseDpath
     logic [31:0] tag_addr; 
     logic [31:0] batch_send_addr_res;
     
-    assign tag_addr = {tarray_rdata_0, index0, 6'd0};
+    assign tag_addr = {tarray_rdata_0, index, 6'd0};
     vc_Mux2#(32) batch_send_addr_mux
     (
-        .in0 (req_addr0), 
+        .in0 (req_addr), 
         .in1 (tag_addr), 
         .sel (batch_send_addr_sel), 
         .out (batch_send_addr_res)
@@ -328,74 +327,20 @@ module lab3_cache_CacheBaseDpath
     assign darray_wdata_0 = from_mem_data;
 
     logic [511:0] repl_unit_out; 
-    assign repl_unit_out = {16{req_data0}}; 
+    assign repl_unit_out = {16{req_data}}; 
 
     // ==========================================================================
     //                           M1 stage 
     // ==========================================================================
-
-    logic [ 31:0] req_addr_reg1_out;
-    logic [ 31:0] req_addr1; 
     
     mem_req_4B_t req_msg1; 
-    vc_EnResetReg#(77) req_msg1_reg
-    (
-        .clk    (clk),
-        .reset  (reset),
-        .en     (req_reg_en_1),
-        .d      (req_msg0),
-        .q      (req_msg1)
-    );
 
-    vc_EnResetReg#(32) req_addr1_reg
-    (
-        .clk    (clk),
-        .reset  (reset),
-        .en     (req_reg_en_1),
-        .d      (req_addr0),
-        .q      (req_addr_reg1_out)
-    );
-    
-    vc_Mux2#(32) parallel_read_mux 
-    (
-        .in0 (req_addr0), 
-        .in1 (req_addr_reg1_out), 
-        .sel (parallel_read_mux_sel), 
-        .out (req_addr1)
-    );
+    assign darray_wdata_1 = repl_unit_out;
 
-    logic [511:0] req_data1; 
-    vc_EnResetReg#(512) req_data1_reg
-    (
-        .clk    (clk),
-        .reset  (reset),
-        .en     (req_reg_en_1),
-        .d      (repl_unit_out),
-        .q      (req_data1)
-    );
-
-
-    assign darray_wdata_1 = req_data1;
-
-
-    // request information 
-    logic [20:0] tag1;       // 32 - 5 - 6 bit tag
-    logic [ 4:0] index1;     // 2kB cache: 2^11 bytes, thus 2^5 lines, and therefore 5 bit index
-    logic [ 3:0] offset1;    // 64-byte cache blocks: 2^6 byte and needs 6 bits to represent, 4 bit offset, 2 bit 00
-
-    assign tag1     = req_addr1[31:11]; // un-used
-    assign index1   = req_addr1[10:6]; 
-    assign offset1  = req_addr1[5:2]; 
-    
     logic [15:0] word_en_one_hot; 
-    assign word_en_one_hot = 1 << offset1; 
-    vc_Mux2#(16) write_word_en_mux 
-    (
-        .in0  (write_word_en_all),
-        .in1  (word_en_one_hot),
-        .sel  (word_en_sel),
-        .out  (darray_wdata_word_en_1)
-    ); 
+    assign word_en_one_hot = 1 << offset; 
+
+    assign darray_wdata_word_en_1 = word_en_one_hot;
 
     
     // resulting muxes 
@@ -411,7 +356,7 @@ module lab3_cache_CacheBaseDpath
         .in5 (darray_rdata_1[191 :  160]),
         .in6 (darray_rdata_1[223 :  192]),
         .in7 (darray_rdata_1[255 :  224]),
-        .sel (offset1[2:0]),
+        .sel (offset[2:0]),
         .out (cache_line_lower)
     );
 
@@ -426,7 +371,7 @@ module lab3_cache_CacheBaseDpath
         .in5 (darray_rdata_1[447 :  416]),
         .in6 (darray_rdata_1[479 :  448]),
         .in7 (darray_rdata_1[511 :  480]),
-        .sel (offset1[2:0]), 
+        .sel (offset[2:0]), 
         .out (cache_line_upper)
     );
 
@@ -434,7 +379,7 @@ module lab3_cache_CacheBaseDpath
     (
         .in0 (cache_line_lower), 
         .in1 (cache_line_upper), 
-        .sel (offset1[3]), 
+        .sel (offset[3]), 
         .out (cache_resp_data)
     ); 
 

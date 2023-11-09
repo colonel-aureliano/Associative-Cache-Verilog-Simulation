@@ -44,9 +44,9 @@ module lab3_cache_CacheBase
   output logic                    flush_done
 );
 
-  logic req_reg_en_0; 
-  logic idx0_mux_sel;
-  logic idx0_incr_reg_en;
+  logic req_reg_en; 
+  logic index_mux_sel;
+  logic index_incr_reg_en;
   logic idx_incr_mux_sel;
 
   logic darray_wen_0; 
@@ -66,11 +66,7 @@ module lab3_cache_CacheBase
   logic batch_receive_ostream_rdy; 
   logic batch_receive_ostream_val; 
 
-  logic req_reg_en_1; 
-  logic parallel_read_mux_sel;
-
   logic darray_wen_1;  
-  logic word_en_sel; 
 
   logic dirty_wdata_1; 
   logic dirty_wen_1; 
@@ -89,9 +85,9 @@ module lab3_cache_CacheBase
     // Make request to memory if miss
     // Stall when refilling
     // On read hit, combined with M1 stage
-    .req_reg_en_0 (req_reg_en_0),
-    .idx0_mux_sel (idx0_mux_sel),
-    .idx0_incr_reg_en (idx0_incr_reg_en),
+    .req_reg_en (req_reg_en),
+    .index_mux_sel (index_mux_sel),
+    .index_incr_reg_en (index_incr_reg_en),
     .idx_incr_mux_sel (idx_incr_mux_sel),
     .darray_wen_0 (darray_wen_0) , 
     .tarray_wen_0 (tarray_wen_0) , 
@@ -114,10 +110,7 @@ module lab3_cache_CacheBase
     // ------ M1 stage ----------
     // Write to data array if write request
     // Make response to processor
-    .req_reg_en_1 (req_reg_en_1), 
-    .parallel_read_mux_sel (parallel_read_mux_sel),
     .darray_wen_1 (darray_wen_1),  
-    .word_en_sel (word_en_sel), 
     .dirty_wdata_1 (dirty_wdata_1), 
     .dirty_wen_1 (dirty_wen_1), 
     .is_dirty_1 (is_dirty_1), 

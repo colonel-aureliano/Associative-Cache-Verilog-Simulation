@@ -32,10 +32,10 @@ module lab3_cache_CacheBaseCtrl
 
 
     // -------------------- M0 stage ----------------------
-    output logic        req_reg_en_0,
+    output logic        req_reg_en,
 
-    output logic        idx0_mux_sel, 
-    output logic        idx0_incr_reg_en, 
+    output logic        index_mux_sel, 
+    output logic        index_incr_reg_en, 
     output logic        idx_incr_mux_sel,
 
     // data array 
@@ -67,11 +67,8 @@ module lab3_cache_CacheBaseCtrl
     output logic        batch_send_addr_sel, 
 
     // -------------- M1 Stage --------------
-    output logic        req_reg_en_1,
-    output logic        parallel_read_mux_sel,
     // data array: 
     output logic        darray_wen_1,
-    output logic        word_en_sel,
 
     // dirty array
     output logic        dirty_wdata_1,
@@ -87,43 +84,41 @@ module lab3_cache_CacheBaseCtrl
     assign batch_receive_istream_val = cache_resp_val; 
 
 
-    logic stall_1; 
-    logic stall_0; 
+    logic stall; 
 
-    logic val_0; 
-    logic val_1; 
+    logic val; 
 
     logic flush; 
-    logic next_val_0; 
-    assign next_val_0 = memreq_val; 
+    logic next_val; 
+    assign next_val = memreq_val; 
     //----------------------------------------------------------------------
     // M0 stage
     //----------------------------------------------------------------------
 
     // Register enable logic
 
-    assign req_reg_en_0 = !stall_0; 
+    assign req_reg_en = !stall; 
     
-    mem_req_4B_t request_0;
+    mem_req_4B_t request;
     always_ff @( posedge clk ) begin 
         if ( reset ) begin 
-            val_0 <= 1'b0; 
+            val <= 1'b0; 
         end 
-        else if ( req_reg_en_0 ) begin 
-            val_0 <= next_val_0; 
-            request_0 <= memreq_msg; 
+        else if ( req_reg_en ) begin 
+            val <= next_val; 
+            request <= memreq_msg; 
             flush <= inp_flush;
         end 
     end
 
-    assign memreq_rdy = !stall_0;  
+    assign memreq_rdy = !stall;  
 
     logic        msg_type; 
-    logic [31:0] msg_addr_0; 
-    logic [31:0] msg_data_0; 
-    assign msg_type = request_0.type_[0:0]; 
-    assign msg_addr_0 = request_0.addr; 
-    assign msg_data_0 = request_0.data;
+    logic [31:0] msg_addr; 
+    logic [31:0] msg_data; 
+    assign msg_type = request.type_[0:0]; 
+    assign msg_addr = request.addr; 
+    assign msg_data = request.data;
     
 
     // ----------------------- FSM for eviction and refilling ------------
@@ -135,12 +130,12 @@ module lab3_cache_CacheBaseCtrl
     logic [1:0] memreq_state_next; 
 
     logic       wait_refill; 
-    assign wait_refill = val_0 && !tarray_match; 
+    assign wait_refill = val && !tarray_match; 
 
 
-    assign tarray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
-    assign darray_wen_0 = val_0 && memreq_state == refill_req_done && memreq_state_next == no_request;
-    assign dirty_wen_0 = val_0 && (memreq_state == evict_req || (flush_state == flushing && is_dirty_0)); 
+    assign tarray_wen_0 = val && memreq_state == refill_req_done && memreq_state_next == no_request;
+    assign darray_wen_0 = val && memreq_state == refill_req_done && memreq_state_next == no_request;
+    assign dirty_wen_0 = val && (memreq_state == evict_req || (flush_state == flushing && is_dirty_0)); 
 
 
     localparam no_flush   = 2'd0; 
@@ -169,7 +164,7 @@ module lab3_cache_CacheBaseCtrl
     end 
 
     always_comb begin 
-        if ( val_0 && !tarray_match && is_dirty_0 && !flush )  begin 
+        if ( val && !tarray_match && is_dirty_0 && !flush )  begin 
             // need to evict
             flush_next = no_flush; 
             if ( memreq_state == no_request ) begin 
@@ -189,7 +184,7 @@ module lab3_cache_CacheBaseCtrl
             end
 
         end 
-        else if ( val_0 && !tarray_match  && !flush ) begin 
+        else if ( val && !tarray_match  && !flush ) begin 
             flush_next = no_flush;
             // need to refill 
             if ( memreq_state == no_request ) begin 
@@ -214,13 +209,12 @@ module lab3_cache_CacheBaseCtrl
                 $stop() ;
             end
         end 
-        else if ( val_0 && flush ) begin 
+        else if ( val && flush ) begin 
             // $display("get in flushing"); 
             // flushing we want to stay in evict, increment index
             memreq_state_next = no_request;
             if (flush_state == no_flush ) begin 
-                if ( stall_1 ) flush_next = no_flush; 
-                else flush_next = flushing; 
+                flush_next = flushing; 
             end
             else if ( flush_state == flushing && flush_counter < 31) flush_next = flushing; 
             else if ( flush_state == flushing ) flush_next = flush_fin; 
@@ -251,8 +245,8 @@ module lab3_cache_CacheBaseCtrl
         input cs_batch_send_addr_sel, 
 
         input cs_flush_done,
-        input cs_idx0_mux_sel,
-        input cs_idx0_incr_reg_en,
+        input cs_index_mux_sel,
+        input cs_index_incr_reg_en,
         input cs_idx_incr_mux_sel
     );
         begin
@@ -263,8 +257,8 @@ module lab3_cache_CacheBaseCtrl
             batch_receive_ostream_rdy = cs_batch_receive_ostream_rdy;
             batch_send_addr_sel       = cs_batch_send_addr_sel; 
             flush_done                = cs_flush_done;
-            idx0_mux_sel              = cs_idx0_mux_sel;
-            idx0_incr_reg_en          = cs_idx0_incr_reg_en;
+            index_mux_sel             = cs_index_mux_sel;
+            index_incr_reg_en         = cs_index_incr_reg_en;
             idx_incr_mux_sel          = cs_idx_incr_mux_sel;
         end
     endtask
@@ -303,57 +297,21 @@ module lab3_cache_CacheBaseCtrl
 
     end
 
-    assign stall_0 = val_0 && (wait_refill || flush_state != no_flush || stall_1); 
+    assign stall = val && (memreq_state != no_request || flush_state != no_flush || !memresp_rdy); 
 
-    logic next_val_1; 
-    assign next_val_1 = val_0 && !stall_0; 
     //----------------------------------------------------------------------
     // M1 stage
     //----------------------------------------------------------------------
 
     // Register enable logic
 
-    mem_req_4B_t request_1; 
 
-    assign req_reg_en_1 = !stall_1;
+    assign darray_wen_1 = val && msg_type && memreq_state == no_request && flush_state == no_flush; 
 
-    logic result_sent; 
+    assign dirty_wen_1 = val && msg_type && ( flush_state != flushing); 
+    assign dirty_wdata_1 = msg_type; 
 
-    always_ff @( posedge clk ) begin 
-        if ( reset ) begin 
-            val_1 <= 1'b0; 
-            parallel_read_mux_sel <= 0; 
-            result_sent <= 0; 
-        end
-        else if ( req_reg_en_1 ) begin 
-            val_1 <= next_val_1; 
-            parallel_read_mux_sel <= 1; 
-            request_1 <= request_0; 
-            result_sent <= 0; 
-        end
-
-        if ( memresp_rdy ) result_sent <= 1; 
-    end
-
-
-    logic        msg_type_1; 
-    logic [31:0] msg_addr_1; 
-    logic [31:0] msg_data_1; 
-
-    assign msg_type_1 = request_0.type_[0:0]; 
-    assign msg_addr_1 = request_0.addr; 
-    assign msg_data_1 = request_0.data;
-
-    assign darray_wen_1 = val_1 && msg_type_1 && flush_state != flushing; 
-    assign word_en_sel = msg_type_1; 
-
-    assign dirty_wen_1 = val_1 && msg_type_1 && ( flush_state != flushing); 
-    assign dirty_wdata_1 = msg_type_1; 
-
-    
-    assign memresp_val = val_1;
-
-    assign stall_1 = val_1 && !memresp_rdy; 
+    assign memresp_val = val && memreq_state == no_request && flush_state == no_flush;
 
 endmodule
 
