@@ -96,7 +96,7 @@ module lab3_cache_CacheBaseCtrl
     // Register enable logic
 
     assign req_reg_en = !stall; 
-    assign req_mux_sel = stall; 
+    assign req_mux_sel = (req_state != no_request); 
 
     logic        val; 
     logic        store_val; 
@@ -110,8 +110,9 @@ module lab3_cache_CacheBaseCtrl
             // val <= next_val; 
             store_request <= memreq_msg; 
             store_val <= memreq_val; 
-            flush <= inp_flush;
         end 
+
+        if ( req_state == no_request || req_state == flush_fin ) flush <= inp_flush; 
     end
     
     always_comb begin 
@@ -139,9 +140,10 @@ module lab3_cache_CacheBaseCtrl
     localparam no_request = 3'd0; 
     localparam evict_req = 3'd1; 
     localparam refill_req = 3'd2; 
-    localparam refill_req_done = 3'd3; 
-    localparam flushing   = 3'd4; 
-    localparam flush_fin  = 3'd5; 
+    localparam refill_req_done = 3'd3;
+    localparam refill_resp_done = 3'd4; 
+    localparam flushing   = 3'd5; 
+    localparam flush_fin  = 3'd6; 
 
     logic [2:0] req_state; 
     logic [2:0] req_state_next; 
@@ -155,8 +157,8 @@ module lab3_cache_CacheBaseCtrl
     assign wait_refill = !tarray_match; 
 
 
-    assign tarray_wen_0 = req_state == refill_req_done && req_state_next == no_request;
-    assign darray_wen_0 = req_state == refill_req_done && req_state_next == no_request;
+    assign tarray_wen_0 = req_state == refill_req_done && req_state_next == refill_resp_done;
+    assign darray_wen_0 = req_state == refill_req_done && req_state_next == refill_resp_done;
     assign dirty_wen_0 = (req_state == evict_req || (req_state == flushing && is_dirty_0)); 
 
 
@@ -187,23 +189,22 @@ module lab3_cache_CacheBaseCtrl
                 req_state_next = evict_req; 
             end else if ( !tarray_match ) begin 
                 req_state_next = refill_req; 
+            end else if ( !memresp_rdy) begin 
+                // if valid and no request and response is not valid, then we want to stall it but also want to have it immediately available
+                req_state_next = refill_resp_done; 
             end else begin 
                 req_state_next = no_request; 
             end
         end else if ( req_state == flushing ) begin 
             // if currently flushing 
-            if ( req_state == flushing && flush_counter < 31) req_state_next = flushing; 
-            else if ( req_state == flushing ) req_state_next = flush_fin; 
-            else if ( req_state == flush_fin ) begin 
-                // $display(" possible no flush 1"); 
-                if ( memresp_rdy ) req_state_next = no_request; 
-                else req_state_next = flush_fin;
-            end
-            else begin 
-                // $display("possible no flush 2");
-                req_state_next = no_request;  
-            end
-        end else if ( req_state == evict_req ) begin 
+            if ( flush_counter < 31) req_state_next = flushing; 
+            else req_state_next = flush_fin; 
+        end else if ( req_state == flush_fin ) begin 
+            // $display(" possible no flush 1"); 
+            if ( memresp_rdy ) req_state_next = no_request; 
+            else req_state_next = flush_fin;
+        end
+        else if ( req_state == evict_req ) begin 
             if ( batch_send_istream_rdy ) begin 
                 req_state_next = refill_req; 
             end 
@@ -219,9 +220,13 @@ module lab3_cache_CacheBaseCtrl
             end 
         end else if (req_state == refill_req_done ) begin 
             // waiting until batch_receive is done; 
-            if ( batch_receive_ostream_val ) req_state_next = no_request; 
+            if ( batch_receive_ostream_val ) req_state_next = refill_resp_done; 
             else req_state_next = refill_req_done; 
-        end  else begin 
+        end else if (req_state == refill_resp_done) begin 
+            if ( memresp_rdy ) req_state_next = no_request;
+            else req_state_next = refill_resp_done; 
+        end
+        else begin 
             req_state_next = no_request; 
         end
     end    
@@ -271,15 +276,16 @@ module lab3_cache_CacheBaseCtrl
             evict_req:                                 cs( 1,       0,    1,       1,         0,      1,     0,    0,    0,           0);
             refill_req:                                cs( 0,       0,    0,       1,         1,      0,     0,    0,    0,           0);
             refill_req_done:                           cs( 0,       0,    0,       0,         1,      0,     0,    0,    0,           0);
+            refill_resp_done:                          cs( 0,       0,    0,       0,         0,      0,     0,    0,    0,           0);
             flushing:  if ( batch_send_istream_rdy )   cs( 1,       0,    1,   is_dirty_0,    0,      1,     0,    1,    1,     flush_incr_sel);
-                        else                            cs( 0,       0,    1,   is_dirty_0,    0,      1,     0,    1,    0,     flush_incr_sel);
+                       else                            cs( 0,       0,    1,   is_dirty_0,    0,      1,     0,    1,    0,     flush_incr_sel);
             flush_fin:                                 cs( 0,       0,    1,       0,         0,      1,     1,    0,    0,           0);
             default:                                   cs('x,      'x,   'x,       0,         0,      0,     0,    0,    0,           0);
         endcase
 
     end
 
-    assign stall = val && (req_state != no_request || ( memreq_val && !memresp_rdy )); 
+    assign stall = req_state != no_request || (val && ( memreq_val && !memresp_rdy )); 
 
     //----------------------------------------------------------------------
     // M1 stage
@@ -288,12 +294,12 @@ module lab3_cache_CacheBaseCtrl
     // Register enable logic
 
 
-    assign darray_wen_1 = val && msg_type && req_state == no_request  && tarray_match; 
+    assign darray_wen_1 = val && msg_type && (req_state == no_request || req_state == refill_resp_done)  && tarray_match; 
 
-    assign dirty_wen_1 = val && msg_type && req_state == no_request && tarray_match; 
+    assign dirty_wen_1 = val && msg_type && (req_state == no_request || req_state == refill_resp_done)  && tarray_match; 
     assign dirty_wdata_1 = msg_type; 
 
-    assign memresp_val = req_state == no_request && tarray_match || req_state == flush_fin;
+    assign memresp_val = (req_state == no_request || req_state == refill_resp_done) && tarray_match || req_state == flush_fin;
 
 endmodule
 

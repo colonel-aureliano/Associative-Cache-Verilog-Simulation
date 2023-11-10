@@ -116,6 +116,7 @@ module top(  input logic clk, input logic linetrace );
         end
 
         @(negedge clk); 
+        
         assertion("same cycle val", 32'd1, {31'd0, memresp_val});
         assertion512("new data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'h3,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[2]); 
 
@@ -345,9 +346,10 @@ module top(  input logic clk, input logic linetrace );
         while ( !flush_done ) @(negedge clk); 
         flush = 0; 
         memreq_val = 0; 
-        memresp_rdy = 0; 
+        memresp_rdy = 1; 
         @(negedge clk);
 
+        memresp_rdy = 0; 
         for (integer i = 0; i < 32; i++) begin 
             $display("iteration %d", i);
             assertion("not dirty: ", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[i]});
@@ -373,10 +375,54 @@ module top(  input logic clk, input logic linetrace );
         @(negedge clk); 
         assertion("no dirty changes", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[5]}); 
         
-        memresp_val = 1; 
+        memresp_rdy = 1; 
+        memreq_val = 0; 
+        @(negedge clk); 
+        // ==================================================================
+        //                     same cycle write hit 
+        // ==================================================================
+        // write tag 9, index 5, offset 5; 
+
+        memreq_val = 1; 
+        memreq_msg = {3'd1, 8'd0, 21'd9, 5'd5, 4'd5, 2'd00, 2'd0, 32'h12345678}; // read request with tag 15, index 5, and offset 5
+        
+        cache_req_rdy = 1; 
+        
+        cache_resp_val = 0; 
+        memresp_rdy = 0; 
+        #0.05;
+        assertion("same cycle read hit", 32'd1, {31'd0, memresp_val}); 
+        @(negedge clk); 
+        assertion("right data", 32'h12345678, DUT.dpath.data_array.rfile[5][191:160]); 
+        assertion("dirty after write", 32'd1, {31'd0, DUT.dpath.dirty_array.rfile[5]}); 
+        
+        memreq_val = 0; 
+        @(negedge clk);
+
+        // ==================================================================
+        //                     same cycle write hit 
+        // ==================================================================
+        // write tag 7, index 2, and offset 9
+
+        memreq_val = 1; 
+        memreq_msg = {3'd1, 8'd0, 21'd7, 5'd2, 4'd9, 2'd00, 2'd0, 32'h87654321}; // read request with tag 15, index 5, and offset 5
         
         @(negedge clk); 
+        @(negedge clk); 
+        @(negedge clk); 
+        // delaying resp ready 
+        assertion("still ready after delay", 32'd1, {31'd0, memresp_val}); 
+        
+        memresp_rdy = 1; 
         @(negedge clk);
+        #0.05;
+        assertion("same cycle read hit", 32'd1, {31'd0, memresp_val}); 
+        @(negedge clk); 
+        assertion("right data", 32'h87654321, DUT.dpath.data_array.rfile[2][319:288]); 
+        assertion("dirty after write", 32'd1, {31'd0, DUT.dpath.dirty_array.rfile[2]}); 
+
+        @(negedge clk);
+
         $finish();
     end
   
