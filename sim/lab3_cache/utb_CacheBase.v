@@ -55,6 +55,8 @@ module top(  input logic clk, input logic linetrace );
     // Run the Test Bench
     //----------------------------------------------------------------------
 
+    logic clock_counter; 
+
     logic [511:0] expected;
     logic [31:0] holder; 
     initial begin
@@ -264,7 +266,7 @@ module top(  input logic clk, input logic linetrace );
             @(negedge clk); 
         end
 
-
+        memreq_val = 0; 
         @(negedge clk); 
         @(negedge clk); 
         for (integer i = 0; i < 16; i++) begin 
@@ -280,6 +282,10 @@ module top(  input logic clk, input logic linetrace );
             @(negedge clk);
         end
 
+        @(negedge clk); 
+        assertion("same cycle val", 32'd1, {31'd0, memresp_val});
+        
+        @(negedge clk); 
         assertion512("new data from write", {32'h0,32'h1,32'h2,32'h3,32'hDEADBEEF,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[5]); 
         assertion("tag: ", {11'd0, 21'd9}, {11'd0, DUT.dpath.tag_array.rfile[5]});
         
@@ -337,13 +343,40 @@ module top(  input logic clk, input logic linetrace );
 
 
         while ( !flush_done ) @(negedge clk); 
+        flush = 0; 
+        memreq_val = 0; 
+        memresp_rdy = 0; 
+        @(negedge clk);
 
         for (integer i = 0; i < 32; i++) begin 
             $display("iteration %d", i);
             assertion("not dirty: ", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[i]});
         end
-        
 
+        
+        // ==================================================================
+        //                     same cycle read hit 
+        // ==================================================================
+        // read tag 9, index 5, offset 11; 
+
+        memreq_val = 1; 
+        memreq_msg = {3'd0, 8'd0, 21'd9, 5'd5, 4'd11, 2'd00, 2'd0, 32'h12345678}; // read request with tag 15, index 2, and offset 1
+        
+        cache_req_rdy = 1; 
+        
+        cache_resp_val = 0; 
+        memresp_val = 0; 
+        #0.5;
+        assertion("same cycle read hit", 32'd1, {31'd0, memresp_val}); 
+        assertion("right data", 32'hDEADBEEF, memresp_msg.data); 
+        @(negedge clk); 
+        @(negedge clk); 
+        assertion("no dirty changes", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[5]}); 
+        
+        memresp_val = 1; 
+        
+        @(negedge clk); 
+        @(negedge clk);
         $finish();
     end
   
@@ -370,6 +403,7 @@ module top(  input logic clk, input logic linetrace );
     initial begin 
         for (integer i = 0; i < 20000; i++) begin 
             @(negedge clk);
+            clock_counter = !clock_counter; 
         end
 
         $display("test time exceeded, Terminating"); 
