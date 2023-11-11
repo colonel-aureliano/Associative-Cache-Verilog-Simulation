@@ -20,14 +20,16 @@ module lab3_cache_CacheBaseDpath
 (
     input  logic        clk,
     input  logic        reset,
-    //definition of inputs and outputs 
+
+    // definition of inputs and outputs 
     
     // interface
     input  mem_req_4B_t memreq_msg,
 
-    // ------ M0 stage ----------
+    // receive req msg
     input  logic        req_reg_en,
     input  logic        req_mux_sel,
+
     // flushing logic 
     input  logic        index_mux_sel, 
     input  logic        index_incr_reg_en, 
@@ -44,7 +46,6 @@ module lab3_cache_CacheBaseDpath
     input  logic        dirty_wen_0,
     input  logic        dirty_wdata_0,
     output logic        is_dirty_0,
-
 
     // batch send request to memory: 
     input  logic        batch_send_istream_val,
@@ -65,7 +66,6 @@ module lab3_cache_CacheBaseDpath
     
     input  mem_resp_4B_t batch_receive_data,
 
-    // -------------- M1 Stage --------------
     // data array: 
     input  logic        darray_wen_1,
 
@@ -78,9 +78,6 @@ module lab3_cache_CacheBaseDpath
     output mem_resp_4B_t memresp_msg
 
 );
-    //-----------------------------------------------------------------------
-    // M0 Stage
-    //-----------------------------------------------------------------------
     logic [31:0] req_addr; 
     logic [31:0] req_data; 
     mem_req_4B_t req_msg; 
@@ -166,7 +163,7 @@ module lab3_cache_CacheBaseDpath
     localparam write_word_en_all = 16'hFFFF;
     logic [ 15:0] darray_wdata_word_en_1; 
 
-    lab3_cache_DataArray data_array
+    lab3_cache_DataArray #(32) data_array
     (
         .clk          (clk),
         .reset        (reset),
@@ -317,10 +314,6 @@ module lab3_cache_CacheBaseDpath
     logic [511:0] repl_unit_out; 
     assign repl_unit_out = {16{req_data}}; 
 
-    // ==========================================================================
-    //                           M1 stage 
-    // ==========================================================================
-    
     assign darray_wdata_1 = repl_unit_out;
 
     logic [15:0] word_en_one_hot; 
@@ -328,7 +321,10 @@ module lab3_cache_CacheBaseDpath
 
     assign darray_wdata_word_en_1 = word_en_one_hot;
 
-    
+    // ==========================================================================
+    //                           Send Response
+    // ==========================================================================
+       
     // resulting muxes 
     logic [31:0] cache_resp_data; 
     logic [31:0] cache_line_lower;

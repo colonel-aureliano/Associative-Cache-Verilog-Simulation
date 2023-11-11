@@ -82,7 +82,6 @@ module lab3_cache_CacheBase
     // interface
     .memreq_msg (memreq_msg),
 
-    // ------ M0 stage ----------
     // Make request to memory if miss
     // Stall when refilling
     // On read hit, combined with M1 stage
@@ -109,7 +108,6 @@ module lab3_cache_CacheBase
     .batch_receive_ostream_val (batch_receive_ostream_val), 
     .batch_send_addr_sel       (batch_send_addr_sel),
     .batch_receive_data ( cache_resp_msg ), 
-    // ------ M1 stage ----------
     // Write to data array if write request
     // Make response to processor
     .darray_wen_1 (darray_wen_1),  

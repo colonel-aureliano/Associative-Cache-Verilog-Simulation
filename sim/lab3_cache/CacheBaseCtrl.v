@@ -30,8 +30,7 @@ module lab3_cache_CacheBaseCtrl
     input  logic        cache_resp_val,
     output logic        cache_resp_rdy,
 
-
-    // -------------------- M0 stage ----------------------
+    // receive req msg
     output logic        req_reg_en,
     output logic        req_mux_sel, 
 
@@ -67,7 +66,6 @@ module lab3_cache_CacheBaseCtrl
 
     output logic        batch_send_addr_sel, 
 
-    // -------------- M1 Stage --------------
     // data array: 
     output logic        darray_wen_1,
 
@@ -89,9 +87,6 @@ module lab3_cache_CacheBaseCtrl
     logic flush; 
     // logic next_val; 
     // assign next_val = memreq_val; 
-    //----------------------------------------------------------------------
-    // M0 stage
-    //----------------------------------------------------------------------
 
     // Register enable logic
 
@@ -288,7 +283,7 @@ module lab3_cache_CacheBaseCtrl
     assign stall = req_state != no_request || (val && ( memreq_val && !memresp_rdy )); 
 
     //----------------------------------------------------------------------
-    // M1 stage
+    // Write to data array / Send response
     //----------------------------------------------------------------------
 
     // Register enable logic

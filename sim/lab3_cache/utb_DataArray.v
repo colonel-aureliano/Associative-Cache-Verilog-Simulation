@@ -15,30 +15,33 @@
 //------------------------------------------------------------------------
 
 module top(  input logic clk, input logic linetrace );
+    
+    localparam num_entries = 32;
+    localparam addr_nbits  = $clog2(num_entries);
 
     logic         reset;
 
       // Read port 0 (combinational read)
 
-    logic [  4:0] read_addr0;
+    logic [addr_nbits-1:0] read_addr0;
     logic [511:0] read_data0;
 
       // Read port 1 (combinational read)
 
-    logic [  4:0] read_addr1;
+    logic [addr_nbits-1:0] read_addr1;
     logic [511:0] read_data1;
 
       // Write port (sampled on the rising clock edge)
 
     logic         write_en0;
-    logic [  4:0] write_addr0;
+    logic [addr_nbits-1:0] write_addr0;
     logic [511:0] write_data0;
     logic [ 15:0] write_word_en_0;    // assume one-hot encoding
 
       // Write port (sampled on the rising clock edge)
 
     logic         write_en1;
-    logic [  4:0] write_addr1;
+    logic [addr_nbits-1:0] write_addr1;
     logic [511:0] write_data1;
     logic [ 15:0] write_word_en_1;
 
@@ -47,7 +50,7 @@ module top(  input logic clk, input logic linetrace );
     //----------------------------------------------------------------------
     
     // Instantiate the processor datapath
-    lab3_cache_DataArray DUT
+    lab3_cache_DataArray #(num_entries) DUT
     ( 
         .*
     ); 
