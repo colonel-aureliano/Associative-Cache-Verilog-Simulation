@@ -1,9 +1,9 @@
 //=========================================================================
-// Cache: Direct Mapped Write Back Write Allocate
+// Cache: 2-Way Set Associative Write Back Write Allocate
 //=========================================================================
 
-`ifndef LAB3_CACHE_CACHE_BASE_DPATH_V
-`define LAB3_CACHE_CACHE_BASE_DPATH_V
+`ifndef LAB3_CACHE_CACHE_ALT_DPATH_V
+`define LAB3_CACHE_CACHE_ALT_DPATH_V
 
 `include "vc/arithmetic.v"
 `include "vc/mem-msgs.v"
@@ -15,8 +15,7 @@
 `include "DataArray.v"
 
 
-module lab3_cache_CacheBaseDpath
-
+module lab3_cache_CacheAltDpath
 (
     input  logic        clk,
     input  logic        reset,
@@ -35,28 +34,38 @@ module lab3_cache_CacheBaseDpath
     input  logic        index_incr_reg_en, 
     input  logic        idx_incr_mux_sel,
 
-    // data array 
+    // way logic
+    input logic         way_hit,
+    input logic         way_victim,
+    input logic         way_mux_sel,
+
+    // data array logic
     input logic         darray_wen_0,
+    input logic         darray_wdata_mux_sel,
+    input logic         darray_write_word_en_mux_sel,
 
     // tag array logic
-    input  logic        tarray_wen_0,
-    output logic        tarray_match,
+    input  logic        tarray0_wen,
+    output logic        tarray0_match,
+    input  logic        tarray1_wen,
+    output logic        tarray1_match,
     
     // dirty bit array logic 
-    input  logic        dirty_wen_0,
-    input  logic        dirty_wdata_0,
-    output logic        is_dirty_0,
+    input  logic        dirty_wen,
+    input  logic        dirty_wdata,
+    output logic        is_dirty,
 
-    // batch send request to memory: 
+    // batch send request to memory
     input  logic        batch_send_istream_val,
     output logic        batch_send_istream_rdy,
     output logic        batch_send_ostream_val,
     input  logic        batch_send_ostream_rdy,
     
+    input  logic        to_mem_tag_mux_sel,
     input  logic        batch_send_rw,
     output mem_req_4B_t send_mem_req,
 
-    // batch receive request from memory: 
+    // batch receive request from memory
     input  logic        batch_receive_istream_val,
     output logic        batch_receive_istream_rdy,
     input  logic        batch_receive_ostream_rdy,
@@ -66,18 +75,11 @@ module lab3_cache_CacheBaseDpath
     
     input  mem_resp_4B_t batch_receive_data,
 
-    // data array: 
-    input  logic        darray_wen_1,
-
-    // dirty array
-    input  logic        dirty_wdata_1,
-    input  logic        dirty_wen_1,
-    output logic        is_dirty_1,
-
     // output 
     output mem_resp_4B_t memresp_msg
 
 );
+
     logic [31:0] req_addr; 
     logic [31:0] req_data; 
     mem_req_4B_t req_msg; 
@@ -104,9 +106,9 @@ module lab3_cache_CacheBaseDpath
     assign req_data = req_msg.data; 
 
     logic [20:0] tag;       // 32 - 5 - 6 bit tag
-    logic [ 4:0] req_idx;     // 2kB cache: 2^11 bytes, thus 2^5 lines, and therefore 5 bit index
-    logic [ 3:0] offset;    // 64-byte cache blocks: 2^6 byte and needs 6 bits to represent, 4 bit offset, 2 bit 00
-    // tag: 21 bit  index: 5 bit    offset: 4 bit   00: 2bit
+    logic [ 4:0] req_idx;   // 4kB cache: 2^12 bytes, 2 way, thus 2^5 lines, and therefore 5 bit index
+    logic [ 3:0] offset;    // 64-byte cache blocks: 2^6 byte and needs 6 bits, 4 bit offset, 2 bit 00
+    // tag: 21 bit; index: 5 bit; offset: 4 bit; 00: 2bit
 
     assign tag     = req_addr[31:11]; 
     assign req_idx = req_addr[10:6]; 
@@ -114,6 +116,7 @@ module lab3_cache_CacheBaseDpath
 
 
     // ---------------------------- index incrementer for flushing ---------------------
+    
     logic [ 4:0] index; 
 
     logic [ 4:0] incr_idx; 
@@ -146,113 +149,135 @@ module lab3_cache_CacheBaseDpath
 
     assign next_idx_incr = incr_idx + 1; 
 
+    // -----------------------------------------------------
+    //  Way logic / Address for data and dirty array
+    // ----------------------------------------------------
+
+    logic [5:0] data_address;
+    logic       addr_way;
+    vc_Mux2#(1) way_mux
+    (
+      .in0 ( way_hit ),
+      .in1 ( way_victim ),
+      .sel ( way_mux_sel ),
+      .out ( addr_way )
+    )
+    assign data_address = { addr_way, index };
 
     // -----------------------------------------------------
     //                      Data Array 
     // ----------------------------------------------------
     logic [511:0] darray_rdata_0; 
 
-    logic [511:0] darray_rdata_1; 
-
-    // logic         darray_wen_0; 
+    logic [511:0] darray_wdata_repl;
+    logic [511:0] darray_wdata_mem;
     logic [511:0] darray_wdata_0; 
 
-    // logic         darray_wen_0; 
-    logic [511:0] darray_wdata_1; 
+    vc_Mux2#(512) darray_wdata_mux
+    (
+      .in0 ( darray_wdata_repl ),
+      .in1 ( darray_wdata_mem ),
+      .sel ( darray_wdata_mux_sel ),
+      .out ( darray_wdata_0 )
+    )
 
     localparam write_word_en_all = 16'hFFFF;
-    logic [ 15:0] darray_wdata_word_en_1; 
+    logic [ 15:0] darray_wdata_word_en_0; 
+    logic [ 15:0] darray_word_en_one_hot; 
 
-    lab3_cache_DataArray #(32) data_array
+    vc_Mux2#(16) darray_write_word_en_mux
+    (
+      .in0 ( darray_word_en_one_hot ),
+      .in1 ( write_word_en_all ),
+      .sel ( darray_write_word_en_mux_sel ),
+      .out ( darray_wdata_word_en_0 )
+    )
+
+    lab3_cache_DataArray #(64) data_array
     (
         .clk          (clk),
         .reset        (reset),
 
-        .read_addr0  (index),
+        .read_addr0  (data_address),
         .read_data0  (darray_rdata_0),
  
-        .read_addr1  (index),
-        .read_data1  (darray_rdata_1),
+        .read_addr1  (),
+        .read_data1  (),
 
-        // refill entire cache line from mem
         .write_en0   (darray_wen_0),
-        .write_addr0 (index),
+        .write_addr0 (data_address),
         .write_data0 (darray_wdata_0),
-        .write_word_en_0 (write_word_en_all),
+        .write_word_en_0 (darray_wdata_word_en_0),
 
-        // request to write into cache line
-        .write_en1   (darray_wen_1),
-        .write_addr1 (index),
-        .write_data1 (darray_wdata_1),
-        .write_word_en_1 (darray_wdata_word_en_1)
+        .write_en1   (),
+        .write_addr1 (),
+        .write_data1 (),
+        .write_word_en_1 ()
 
     );
-
 
     // --------------------- tag check Dpath ---------------------------
 
-    logic [20:0] tarray_rdata_0; 
-
-    logic [20:0] tarray_rdata_1; 
-
-    logic [20:0] tarray_wdata_0; 
-
+    logic [20:0] tarray0_rdata; 
     
-    // Want to read the tag at index cache line, and compare its tag to current tag
-    // if the cache stored tag is not same as the request tag, it's a miss
-    // if miss, then evict and refill
-    // only possible modification to tag is evict and refill, thus write address and write data is index and tag
-    vc_Regfile_2r2w #(21, 32) tag_array
+    vc_Regfile_1r1w #(21, 32) tag_array0
     (
-        .clk         (clk),
-        .reset       (reset),
+        .clk        (clk),
+        .reset      (reset),
 
-        .read_addr0  (index),
-        .read_data0  (tarray_rdata_0),
+        .read_addr  (index),
+        .read_data  (tarray0_rdata),
 
-        .read_addr1  (index),
-        .read_data1  (tarray_rdata_1),
-
-        .write_en0   (tarray_wen_0),
-        .write_addr0 (index),
-        .write_data0 (tag),
-
-        .write_en1   (), // TODO: DOUBLE CHECK
-        .write_addr1 (),
-        .write_data1 ()
+        .write_en   (tarray0_wen),
+        .write_addr (index),
+        .write_data (tag),
     );
 
-
-    vc_EqComparator #(21) tag_eq 
+    vc_EqComparator #(21) tag_eq0 
     (
-        .in0 (tarray_rdata_0),
+        .in0 (tarray0_rdata),
         .in1 (tag),
-        .out (tarray_match)
+        .out (tarray0_match)
+    ); 
+
+    logic [20:0] tarray1_rdata; 
+    
+    vc_Regfile_1r1w #(21, 32) tag_array1
+    (
+        .clk        (clk),
+        .reset      (reset),
+
+        .read_addr  (index),
+        .read_data  (tarray1_rdata),
+
+        .write_en   (tarray1_wen),
+        .write_addr (index),
+        .write_data (tag),
+    );
+
+    vc_EqComparator #(21) tag_eq1 
+    (
+        .in0 (tarray1_rdata),
+        .in1 (tag),
+        .out (tarray1_match)
     ); 
 
     // ------------------ dirty bit array ----------------
 
     
-    vc_Regfile_2r2w #(1, 32) dirty_array
+    vc_Regfile_1r1w #(1, 64) dirty_array
     (
         
 
         .clk         (clk),
         .reset       (reset),
 
-        .read_addr0  (index),
-        .read_data0  (is_dirty_0),
+        .read_addr  (data_address),
+        .read_data  (is_dirty),
 
-        .read_addr1  (index),
-        .read_data1  (is_dirty_1),                // TODO: DOUBLE CHECK
-
-        .write_en0   (dirty_wen_0),
-        .write_addr0 (index),
-        .write_data0 (dirty_wdata_0),
-
-        .write_en1   (dirty_wen_1),
-        .write_addr1 (index),
-        .write_data1 (dirty_wdata_1)
+        .write_en   (dirty_wen),
+        .write_addr (data_address),
+        .write_data (dirty_wdata),
 
     );
 
@@ -260,8 +285,18 @@ module lab3_cache_CacheBaseDpath
     // ----------------------- Fetch Memory Dpath -------------
     logic [31:0] tag_addr; 
     logic [31:0] batch_send_addr_res;
-    
-    assign tag_addr = {tarray_rdata_0, index, 6'd0};
+
+    logic [20:0] to_mem_tag;
+
+    vc_Mux2#(21) to_mem_tag_mux
+    (
+      .in0 (tarray0_rdata),
+      .in1 (tarray1_rdata),
+      .sel (to_mem_tag_mux_sel),
+      .out (to_mem_tag)
+    )
+
+    assign tag_addr = {to_mem_tag, index, 6'd0};
     vc_Mux2#(32) batch_send_addr_mux
     (
         .in0 (req_addr), 
@@ -309,17 +344,14 @@ module lab3_cache_CacheBaseDpath
         .mem_data (from_mem_data)
     );
 
-    assign darray_wdata_0 = from_mem_data;
+    assign darray_wdata_mem = from_mem_data;
 
     logic [511:0] repl_unit_out; 
     assign repl_unit_out = {16{req_data}}; 
 
-    assign darray_wdata_1 = repl_unit_out;
+    assign darray_wdata_repl = repl_unit_out;
 
-    logic [15:0] word_en_one_hot; 
-    assign word_en_one_hot = 1 << offset; 
-
-    assign darray_wdata_word_en_1 = word_en_one_hot;
+    assign darray_word_en_one_hot = 1 << offset; 
 
     // ==========================================================================
     //                           Send Response
@@ -370,4 +402,4 @@ module lab3_cache_CacheBaseDpath
 endmodule
 
 
-`endif /* LAB3_CACHE_CACHE_BASE_DPATH_V */
+`endif /* LAB3_CACHE_CACHE_ALT_DPATH_V */

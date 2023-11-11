@@ -1,9 +1,9 @@
 //=========================================================================
-// Base Design Cache Controller
+// Base Design Cache Control Unit
 //=========================================================================
 
-`ifndef LAB2_PROC_PROC_Alt_CTRL_V
-`define LAB2_PROC_PROC_Alt_CTRL_V
+`ifndef LAB3_CACHE_CACHE_BASE_CTRL_V
+`define LAB3_CACHE_CACHE_BASE_CTRL_V
 
 `include "vc/trace.v"
 
@@ -298,4 +298,4 @@ module lab3_cache_CacheBaseCtrl
 
 endmodule
 
-`endif /* LAB2_PROC_PROC_BASE_CTRL_V */
+`endif /* LAB3_CACHE_CACHE_BASE_CTRL_V */
