@@ -34,10 +34,8 @@ module lab3_cache_CacheAltDpath
     input  logic        index_incr_reg_en, 
     input  logic        idx_incr_mux_sel,
 
-    // way logic
-    input logic         way_hit,
-    input logic         way_victim,
-    input logic         way_mux_sel,
+    // read_way logic
+    input logic         read_way,
 
     // data array logic
     input logic         darray_wen_0,
@@ -76,8 +74,10 @@ module lab3_cache_CacheAltDpath
     input  mem_resp_4B_t batch_receive_data,
 
     // output 
-    output mem_resp_4B_t memresp_msg
+    output mem_resp_4B_t memresp_msg,
 
+    // to control unit
+    output mem_req_4B_t stored_req_msg
 );
 
     logic [31:0] req_addr; 
@@ -105,8 +105,10 @@ module lab3_cache_CacheAltDpath
     assign req_addr = req_msg.addr;
     assign req_data = req_msg.data; 
 
+    assign stored_req_msg = req_msg;
+
     logic [20:0] tag;       // 32 - 5 - 6 bit tag
-    logic [ 4:0] req_idx;   // 4kB cache: 2^12 bytes, 2 way, thus 2^5 lines, and therefore 5 bit index
+    logic [ 4:0] req_idx;   // 4kB cache: 2^12 bytes, 2 way, thus 2^6 lines, 2^5 sets and therefore 5 bit index
     logic [ 3:0] offset;    // 64-byte cache blocks: 2^6 byte and needs 6 bits, 4 bit offset, 2 bit 00
     // tag: 21 bit; index: 5 bit; offset: 4 bit; 00: 2bit
 
@@ -154,15 +156,8 @@ module lab3_cache_CacheAltDpath
     // ----------------------------------------------------
 
     logic [5:0] data_address;
-    logic       addr_way;
-    vc_Mux2#(1) way_mux
-    (
-      .in0 ( way_hit ),
-      .in1 ( way_victim ),
-      .sel ( way_mux_sel ),
-      .out ( addr_way )
-    )
-    assign data_address = { addr_way, index };
+    assign data_address = { read_way, index };
+    // Most significant bit of address determines which way.
 
     // -----------------------------------------------------
     //                      Data Array 
@@ -179,7 +174,7 @@ module lab3_cache_CacheAltDpath
       .in1 ( darray_wdata_mem ),
       .sel ( darray_wdata_mux_sel ),
       .out ( darray_wdata_0 )
-    )
+    );
 
     localparam write_word_en_all = 16'hFFFF;
     logic [ 15:0] darray_wdata_word_en_0; 
@@ -191,7 +186,7 @@ module lab3_cache_CacheAltDpath
       .in1 ( write_word_en_all ),
       .sel ( darray_write_word_en_mux_sel ),
       .out ( darray_wdata_word_en_0 )
-    )
+    );
 
     lab3_cache_DataArray #(64) data_array
     (
@@ -230,7 +225,7 @@ module lab3_cache_CacheAltDpath
 
         .write_en   (tarray0_wen),
         .write_addr (index),
-        .write_data (tag),
+        .write_data (tag)
     );
 
     vc_EqComparator #(21) tag_eq0 
@@ -252,7 +247,7 @@ module lab3_cache_CacheAltDpath
 
         .write_en   (tarray1_wen),
         .write_addr (index),
-        .write_data (tag),
+        .write_data (tag)
     );
 
     vc_EqComparator #(21) tag_eq1 
@@ -277,7 +272,7 @@ module lab3_cache_CacheAltDpath
 
         .write_en   (dirty_wen),
         .write_addr (data_address),
-        .write_data (dirty_wdata),
+        .write_data (dirty_wdata)
 
     );
 
@@ -294,7 +289,7 @@ module lab3_cache_CacheAltDpath
       .in1 (tarray1_rdata),
       .sel (to_mem_tag_mux_sel),
       .out (to_mem_tag)
-    )
+    );
 
     assign tag_addr = {to_mem_tag, index, 6'd0};
     vc_Mux2#(32) batch_send_addr_mux
@@ -362,14 +357,14 @@ module lab3_cache_CacheAltDpath
     logic [31:0] cache_line_lower;
     vc_Mux8#(32) cache_result_mux_lower 
     (
-        .in0 (darray_rdata_1[31 :  0]),
-        .in1 (darray_rdata_1[63 :  32]),
-        .in2 (darray_rdata_1[95 :  64]),
-        .in3 (darray_rdata_1[127 :  96]),
-        .in4 (darray_rdata_1[159 :  128]),
-        .in5 (darray_rdata_1[191 :  160]),
-        .in6 (darray_rdata_1[223 :  192]),
-        .in7 (darray_rdata_1[255 :  224]),
+        .in0 (darray_rdata_0[31 :  0]),
+        .in1 (darray_rdata_0[63 :  32]),
+        .in2 (darray_rdata_0[95 :  64]),
+        .in3 (darray_rdata_0[127 :  96]),
+        .in4 (darray_rdata_0[159 :  128]),
+        .in5 (darray_rdata_0[191 :  160]),
+        .in6 (darray_rdata_0[223 :  192]),
+        .in7 (darray_rdata_0[255 :  224]),
         .sel (offset[2:0]),
         .out (cache_line_lower)
     );
@@ -377,14 +372,14 @@ module lab3_cache_CacheAltDpath
     logic [31:0] cache_line_upper;
     vc_Mux8#(32) cache_result_mux_upper
     (
-        .in0 (darray_rdata_1[287 :  256]),
-        .in1 (darray_rdata_1[319 :  288]),
-        .in2 (darray_rdata_1[351 :  320]),
-        .in3 (darray_rdata_1[383 :  352]),
-        .in4 (darray_rdata_1[415 :  384]),
-        .in5 (darray_rdata_1[447 :  416]),
-        .in6 (darray_rdata_1[479 :  448]),
-        .in7 (darray_rdata_1[511 :  480]),
+        .in0 (darray_rdata_0[287 :  256]),
+        .in1 (darray_rdata_0[319 :  288]),
+        .in2 (darray_rdata_0[351 :  320]),
+        .in3 (darray_rdata_0[383 :  352]),
+        .in4 (darray_rdata_0[415 :  384]),
+        .in5 (darray_rdata_0[447 :  416]),
+        .in6 (darray_rdata_0[479 :  448]),
+        .in7 (darray_rdata_0[511 :  480]),
         .sel (offset[2:0]), 
         .out (cache_line_upper)
     );

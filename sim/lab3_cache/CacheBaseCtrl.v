@@ -7,8 +7,6 @@
 
 `include "vc/trace.v"
 
-`include "tinyrv2_encoding.v"
-
 module lab3_cache_CacheBaseCtrl
 (
     input  logic        clk,

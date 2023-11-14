@@ -1,7 +1,7 @@
 //========================================================================
 // utb_CacheBase
 //========================================================================
-// A basic Verilog unit test bench for the Cache Memory Sender module
+// A basic Verilog unit test bench for the Cache Base Design module
 
 `default_nettype none
 `timescale 1ps/1ps
