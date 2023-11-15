@@ -66,6 +66,10 @@ module lab3_cache_CacheAlt
   logic dirty_wdata; 
   logic is_dirty; 
 
+  logic mru_wen;
+  logic mru_wdata;
+  logic mru;
+
   logic batch_send_istream_val; 
   logic batch_send_istream_rdy; 
   logic batch_send_ostream_val; 

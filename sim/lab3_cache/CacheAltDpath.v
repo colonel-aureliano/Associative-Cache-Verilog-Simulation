@@ -53,6 +53,11 @@ module lab3_cache_CacheAltDpath
     input  logic        dirty_wdata,
     output logic        is_dirty,
 
+    // mru bit array logic 
+    input  logic        mru_wen,
+    input  logic        mru_wdata,
+    output logic        mru,
+
     // batch send request to memory
     input  logic        batch_send_istream_val,
     output logic        batch_send_istream_rdy,
@@ -273,6 +278,24 @@ module lab3_cache_CacheAltDpath
         .write_en   (dirty_wen),
         .write_addr (data_address),
         .write_data (dirty_wdata)
+
+    );
+
+    // ------------------ MRU bit array ----------------
+
+    
+    vc_Regfile_1r1w #(1, 32) MRU_array
+    (
+
+        .clk         (clk),
+        .reset       (reset),
+
+        .read_addr  (index),
+        .read_data  (mru),
+
+        .write_en   (mru_wen),
+        .write_addr (index),
+        .write_data (mru_wdata)
 
     );
 

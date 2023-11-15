@@ -55,6 +55,11 @@ module lab3_cache_CacheAltCtrl
     output logic        dirty_wdata,
     input  logic        is_dirty,
 
+    // mru bit array logic 
+    output logic        mru_wen,
+    output logic        mru_wdata,
+    input  logic        mru,
+
     // batch send request to memory: 
     output logic        batch_send_istream_val,
     input  logic        batch_send_istream_rdy,
@@ -75,6 +80,7 @@ module lab3_cache_CacheAltCtrl
 );
 
     logic [2:0] state;
+    logic       stored_write_val;
 
     assign req_reg_en = (state == IDLE); 
     assign req_mux_sel = (state != IDLE); 
@@ -83,10 +89,11 @@ module lab3_cache_CacheAltCtrl
     assign index_incr_reg_en = (state == FLUSH);
     assign idx_incr_mux_sel = (state == FLUSH);
 
-    logic       mru; // most recently used
+    // logic       mru; // most recently used
     logic       mru_next;
     logic       way_victim;
     assign way_victim = !mru;
+    assign mru_wdata = mru_next;
 
     // ------------ FSM for eviction and refilling ------------
 
@@ -95,10 +102,16 @@ module lab3_cache_CacheAltCtrl
     always_ff @(posedge clk) begin 
         if ( reset ) begin 
             state <= IDLE;
+            stored_write_val <= 0;
         end
         else begin
-            mru <= mru_next;
             state <= state_next;
+            if (memreq_val && state == IDLE && state_next == REFILL && do_write ) begin
+                stored_write_val <= 1;
+            end
+            else if (state == IDLE && stored_write_val) begin
+                stored_write_val <= 0;
+            end
         end
     end
 
@@ -113,6 +126,7 @@ module lab3_cache_CacheAltCtrl
         state_next = IDLE; 
         read_way = way_victim;
         mru_next = mru;
+        mru_wen = 0;
 
         if (state == IDLE) begin 
             if (memreq_val) begin
@@ -126,11 +140,13 @@ module lab3_cache_CacheAltCtrl
                 else if (tarray0_match) begin
                     read_way = 1'b0;
                     mru_next = 1'b0;
+                    mru_wen = 1;
                     state_next = IDLE;
                 end
                 else if (tarray1_match) begin
                     read_way = 1'b1;
                     mru_next = 1'b1;
+                    mru_wen = 1;
                     state_next = IDLE;
                 end
             end
@@ -167,9 +183,13 @@ module lab3_cache_CacheAltCtrl
     // ------------ State Output ------------
 
     logic          t; 
-    assign t = stored_memreq_msg.type_[0:0]; 
+    logic   do_write;
+    assign do_write = memreq_val && stored_memreq_msg.type_[0:0];
+    // stored_write_val is whether write miss occurred and after refilling
+    // we write into line
+    assign t = stored_write_val || (state == IDLE && state_next == IDLE && do_write); 
 
-    assign memreq_rdy = (state == IDLE && !memresp_val);
+    assign memreq_rdy = (state == IDLE);
 
     task cs
     (
@@ -214,7 +234,7 @@ module lab3_cache_CacheAltCtrl
     assign tarray0_wen = (state == WAIT) && (read_way == 0);
     assign tarray1_wen = (state == WAIT) && (read_way == 1);
     
-    assign memresp_val = (state == IDLE) && (tarray0_match || tarray1_match);
+    assign memresp_val = (!stored_write_val) && (state == IDLE) && (tarray0_match || tarray1_match);
 
 endmodule
 
