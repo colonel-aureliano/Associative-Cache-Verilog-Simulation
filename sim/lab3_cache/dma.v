@@ -7,6 +7,8 @@
 
 
 `include "mem-msgs-wide.v"
+`include "vc/mem-msgs.v"
+`include "vc/regs.v"
 
 module lab3_cache_Dma
 (
