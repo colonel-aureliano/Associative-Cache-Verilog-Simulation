@@ -53,6 +53,10 @@ module lab3_cache_CacheAltDpath
     input  logic        dirty_wdata,
     output logic        is_dirty,
 
+    // valid bit array logic 
+    input  logic        valid_wen0,
+    input  logic        valid_wen1,
+
     // mru bit array logic 
     input  logic        mru_wen,
     input  logic        mru_wdata,
@@ -220,6 +224,8 @@ module lab3_cache_CacheAltDpath
     // --------------------- tag check Dpath ---------------------------
 
     logic [20:0] tarray0_rdata; 
+    logic       is_valid0;
+    logic       is_valid1;
     
     vc_Regfile_1r1w #(21, 32) tag_array0
     (
@@ -234,12 +240,15 @@ module lab3_cache_CacheAltDpath
         .write_data (tag)
     );
 
+    logic eqtag0;
     vc_EqComparator #(21) tag_eq0 
     (
         .in0 (tarray0_rdata),
         .in1 (tag),
-        .out (tarray0_match)
+        .out (eqtag0)
     ); 
+
+    assign tarray0_match = eqtag0 && is_valid0;
 
     logic [20:0] tarray1_rdata; 
     
@@ -256,12 +265,42 @@ module lab3_cache_CacheAltDpath
         .write_data (tag)
     );
 
+    logic eqtag1;
     vc_EqComparator #(21) tag_eq1 
     (
         .in0 (tarray1_rdata),
         .in1 (tag),
-        .out (tarray1_match)
+        .out (eqtag1)
     ); 
+
+    assign tarray1_match = eqtag1 && is_valid1;
+
+    // ------------------ valid bit array ----------------
+
+    
+    vc_Regfile_2r2w #(1, 64) valid_array // value initialized or not
+    (
+        
+
+        .clk         (clk),
+        .reset       (reset),
+
+        .read_addr0  ({1'b0,index}),
+        .read_data0  (is_valid0),
+
+        .write_en0   (valid_wen0),
+        .write_addr0 ({1'b0,index}),
+        .write_data0 (1'b1),
+
+        .read_addr1  ({1'b1,index}),
+        .read_data1  (is_valid1),
+
+        .write_en1   (valid_wen1),
+        .write_addr1 ({1'b1,index}),
+        .write_data1 (1'b1)
+
+
+    );
 
     // ------------------ dirty bit array ----------------
 
@@ -355,7 +394,6 @@ module lab3_cache_CacheAltDpath
 
     mem_resp_64B_t resp_msg_64B;
     
-    // batch receiver
     logic [511:0] from_mem_data; 
     assign from_mem_data = resp_msg_64B.data;
 

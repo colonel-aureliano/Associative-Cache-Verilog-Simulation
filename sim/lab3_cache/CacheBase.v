@@ -56,6 +56,7 @@ module lab3_cache_CacheBase
   logic dirty_wen_0; 
   logic dirty_wdata_0; 
   logic is_dirty_0; 
+  logic valid_wen;
   logic batch_send_istream_val; 
   logic batch_send_istream_rdy; 
   logic batch_send_ostream_val; 
@@ -114,7 +115,8 @@ module lab3_cache_CacheBase
     .dirty_wdata_1 (dirty_wdata_1), 
     .dirty_wen_1 (dirty_wen_1), 
     .is_dirty_1 (is_dirty_1), 
-    .memresp_msg ( memresp_msg )
+    .memresp_msg ( memresp_msg ),
+    .*
   );
 
   lab3_cache_CacheBaseCtrl ctrl 

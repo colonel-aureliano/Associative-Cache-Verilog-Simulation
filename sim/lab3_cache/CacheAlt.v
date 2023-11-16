@@ -66,6 +66,9 @@ module lab3_cache_CacheAlt
   logic dirty_wdata; 
   logic is_dirty; 
 
+  logic valid_wen0;
+  logic valid_wen1;
+
   logic mru_wen;
   logic mru_wdata;
   logic mru;

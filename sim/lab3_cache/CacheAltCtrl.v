@@ -55,6 +55,10 @@ module lab3_cache_CacheAltCtrl
     output logic        dirty_wdata,
     input  logic        is_dirty,
 
+    // valid bit array logic 
+    output logic        valid_wen0,
+    output logic        valid_wen1,
+
     // mru bit array logic 
     output logic        mru_wen,
     output logic        mru_wdata,
@@ -137,6 +141,8 @@ module lab3_cache_CacheAltCtrl
         read_way = way_victim;
         mru_next = mru;
         mru_wen = 0;
+        valid_wen0 = 0;
+        valid_wen1 = 0;
 
         if (state == IDLE) begin 
             if (memreq_val) begin
@@ -178,6 +184,8 @@ module lab3_cache_CacheAltCtrl
         else if (state == WAIT_MEM) begin
             if ( batch_receive_ostream_val ) begin 
                 state_next = WRITE; 
+                if (read_way == 0) valid_wen0 = 1;
+                else if (read_way == 1) valid_wen1 = 1;
             end 
             else begin 
                 state_next = WAIT_MEM;

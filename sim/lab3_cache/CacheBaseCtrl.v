@@ -48,6 +48,8 @@ module lab3_cache_CacheBaseCtrl
     output logic        dirty_wdata_0,
     input  logic        is_dirty_0,
 
+    // valid bit array
+    output logic        valid_wen,
 
     // batch send request to memory: 
     output logic        batch_send_istream_val,
@@ -154,6 +156,7 @@ module lab3_cache_CacheBaseCtrl
     assign darray_wen_0 = req_state == refill_req_done && req_state_next == refill_resp_done;
     assign dirty_wen_0 = (req_state == evict_req || (req_state == flushing && is_dirty_0)); 
 
+    assign valid_wen = tarray_wen_0;
 
     always_ff @(posedge clk) begin 
         if ( reset ) begin 
@@ -267,7 +270,7 @@ module lab3_cache_CacheBaseCtrl
             //                                            wen0   wdata0   rw       val      rdy       sel   done  sel  reg en       mux sel
             no_request:                                cs( 0,       0,    0,       0,         0,      0,     0,    0,    0,           0);
             evict_req:                                 cs( 1,       0,    1,       1,         0,      1,     0,    0,    0,           0);
-            refill_req:                                cs( 0,       0,    0,       1,         1,      0,     0,    0,    0,           0);
+            refill_req:                                cs( 0,       0,    0,       1,         0,      0,     0,    0,    0,           0);
             refill_req_done:                           cs( 0,       0,    0,       0,         1,      0,     0,    0,    0,           0);
             refill_resp_done:                          cs( 0,       0,    0,       0,         0,      0,     0,    0,    0,           0);
             flushing:  if ( batch_send_istream_rdy )   cs( 1,       0,    1,   is_dirty_0,    1,      1,     0,    1,    1,     flush_incr_sel);

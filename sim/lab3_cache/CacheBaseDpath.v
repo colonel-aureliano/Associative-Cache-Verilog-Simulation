@@ -10,9 +10,9 @@
 `include "vc/muxes.v"
 `include "vc/regs.v"
 `include "vc/regfiles.v"
-`include "CacheMemSender.v" 
-`include "CacheMemReceiver.v" 
 `include "DataArray.v"
+`include "mem-msgs-wide.v"
+`include "dma.v"
 
 
 module lab3_cache_CacheBaseDpath
@@ -46,6 +46,9 @@ module lab3_cache_CacheBaseDpath
     input  logic        dirty_wen_0,
     input  logic        dirty_wdata_0,
     output logic        is_dirty_0,
+
+    // valid bit array
+    input logic         valid_wen,
 
     // batch send request to memory: 
     input  logic        batch_send_istream_val,
@@ -222,13 +225,16 @@ module lab3_cache_CacheBaseDpath
         .write_data1 ()
     );
 
-
+    logic eqtag;
     vc_EqComparator #(21) tag_eq 
     (
         .in0 (tarray_rdata_0),
         .in1 (tag),
-        .out (tarray_match)
+        .out (eqtag)
     ); 
+
+    logic is_valid;
+    assign tarray_match = eqtag && is_valid;
 
     // ------------------ dirty bit array ----------------
 
@@ -256,6 +262,25 @@ module lab3_cache_CacheBaseDpath
 
     );
 
+   // ------------------ valid bit array ----------------
+
+    
+    vc_Regfile_1r1w #(1, 32) valid_array // value initialized or not
+    (
+        
+
+        .clk         (clk),
+        .reset       (reset),
+
+        .read_addr  (index),
+        .read_data  (is_valid),
+
+        .write_en   (valid_wen),
+        .write_addr (index),
+        .write_data (1'b1)
+
+    );
+
 
     // ----------------------- Fetch Memory Dpath -------------
     logic [31:0] tag_addr; 
@@ -272,42 +297,36 @@ module lab3_cache_CacheBaseDpath
     logic [31:0] sender_inp_addr; 
     assign sender_inp_addr = batch_send_addr_res & 32'hFFFFFFC0;  //z6b
 
-    lab3_cache_CacheMemSender batch_sender 
-    (
-        .clk         (clk),
-        .reset       (reset),
-    
-        .istream_val (batch_send_istream_val),
-        .istream_rdy (batch_send_istream_rdy),
-    
-        .ostream_val (batch_send_ostream_val),
-        .ostream_rdy (batch_send_ostream_rdy),
+    mem_req_64B_t req_msg_64B;
+    assign req_msg_64B.addr = sender_inp_addr;
+    assign req_msg_64B.data = darray_rdata_0;
+    assign req_msg_64B.type_ = {2'b0, batch_send_rw};
 
-        .inp_addr    (sender_inp_addr),
-        .inp_data    (darray_rdata_0),
-        .rw          (batch_send_rw),
-
-        .mem_req     (send_mem_req)
-    ); 
-
-    
-    // batch receiver
-    logic [511:0] from_mem_data; 
-
-    lab3_cache_CacheMemReceiver batch_receiver 
+    lab3_cache_Dma dma 
     (
         .clk (clk), 
-        .reset (reset), 
+        .reset (reset),
 
-        .istream_val (batch_receive_istream_val), 
-        .istream_rdy (batch_receive_istream_rdy), 
-        .cache_resp_msg (batch_receive_data), 
-    
-        .ostream_val (batch_receive_ostream_val), 
-        .ostream_rdy (batch_receive_ostream_rdy), 
+        .cache_req_msg(req_msg_64B),
+        .cache_req_val(batch_send_istream_val),
+        .cache_req_rdy(batch_send_istream_rdy),
 
-        .mem_data (from_mem_data)
+        .cache_resp_msg(resp_msg_64B),
+        .cache_resp_val(batch_receive_ostream_val),
+        .cache_resp_rdy(batch_receive_ostream_rdy),
+
+        .mem_req_msg(send_mem_req),
+        .mem_req_val(batch_send_ostream_val),
+        .mem_req_rdy(batch_send_ostream_rdy),
+
+        .mem_resp_msg(batch_receive_data),
+        .mem_resp_val(batch_receive_istream_val),
+        .mem_resp_rdy(batch_receive_istream_rdy)
     );
+
+    mem_resp_64B_t resp_msg_64B;
+    logic [511:0] from_mem_data; 
+    assign from_mem_data = resp_msg_64B.data;
 
     assign darray_wdata_0 = from_mem_data;
 

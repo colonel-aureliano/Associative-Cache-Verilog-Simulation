@@ -1,7 +1,7 @@
 csrr x1, mngr2proc < 0x2000
-sw x1, 0(x1)
+#sw x1, 0(x1)
 lw x3, 0(x1)
-csrw proc2mngr, x3 > 0x2000
+csrw proc2mngr, x3 > 0x1388
 
       #data section
    .data
