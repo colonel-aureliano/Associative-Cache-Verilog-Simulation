@@ -193,6 +193,12 @@ module lab3_cache_CacheAltCtrl
             else begin
                 state_next = GIVE;
             end
+            if (tarray0_match) begin
+                read_way = 1'b0;
+            end
+            else if (tarray1_match) begin
+                read_way = 1'b1;
+            end
         end
         else if (state == WRITEBACK) begin
             if ( batch_send_istream_rdy ) begin 
@@ -276,8 +282,8 @@ module lab3_cache_CacheAltCtrl
             REFILL:             cs( 0,    0,    0,     0,        1,       0,       0,    0,           0,     0,       0,    0,      0   );
             WAIT_MEM:           cs( 1,    0,    0,     0,        0,       1,       0,    0,           1,     1,       0,    0,      0   );
             WRITE:              cs( t2,   t2,   t2,    0,        0,       0,       0,    0,           0,     0,       0,    0,      0   );
-            FLUSH: if(send_rdy) cs( 0,    1,    0,     1,        is_dirty,0,       1,    w,           0,     0,       1,    1,      fis   );
-                   else         cs( 0,    0,    0,     1,        is_dirty,0,       1,    w,           0,     0,       1,    0,      fis   );
+            FLUSH: if(send_rdy) cs( 0,    1,    0,     1,        is_dirty,1,       1,    w,           0,     0,       1,    1,      fis );
+                   else         cs( 0,    0,    0,     1,        is_dirty,1,       1,    w,           0,     0,       1,    0,      fis );
             default:            cs( 0,    0,    0,     0,        0,       0,       0,    0,           0,     0,       0,    0,      0   );
         endcase
     end

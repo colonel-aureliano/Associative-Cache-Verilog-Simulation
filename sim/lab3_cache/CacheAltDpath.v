@@ -10,9 +10,9 @@
 `include "vc/muxes.v"
 `include "vc/regs.v"
 `include "vc/regfiles.v"
-`include "CacheMemSender.v" 
-`include "CacheMemReceiver.v" 
 `include "DataArray.v"
+`include "mem-msgs-wide.v"
+`include "dma.v"
 
 
 module lab3_cache_CacheAltDpath
@@ -326,43 +326,38 @@ module lab3_cache_CacheAltDpath
     logic [31:0] sender_inp_addr; 
     assign sender_inp_addr = batch_send_addr_res & 32'hFFFFFFC0;  //z6b
 
-    lab3_cache_CacheMemSender batch_sender 
+    mem_req_64B_t req_msg_64B;
+    assign req_msg_64B.addr = sender_inp_addr;
+    assign req_msg_64B.data = darray_rdata_0;
+    assign req_msg_64B.type_ = {2'b0, batch_send_rw};
+
+    lab3_cache_Dma dma 
     (
-        .clk         (clk),
-        .reset       (reset),
-    
-        .istream_val (batch_send_istream_val),
-        .istream_rdy (batch_send_istream_rdy),
-    
-        .ostream_val (batch_send_ostream_val),
-        .ostream_rdy (batch_send_ostream_rdy),
+        .clk (clk), 
+        .reset (reset),
 
-        .inp_addr    (sender_inp_addr),
-        .inp_data    (darray_rdata_0),
-        .rw          (batch_send_rw),
+        .cache_req_msg(req_msg_64B),
+        .cache_req_val(batch_send_istream_val),
+        .cache_req_rdy(batch_send_istream_rdy),
 
-        .mem_req     (send_mem_req)
-    ); 
+        .cache_resp_msg(resp_msg_64B),
+        .cache_resp_val(batch_receive_ostream_val),
+        .cache_resp_rdy(batch_receive_ostream_rdy),
 
+        .mem_req_msg(send_mem_req),
+        .mem_req_val(batch_send_ostream_val),
+        .mem_req_rdy(batch_send_ostream_rdy),
+
+        .mem_resp_msg(batch_receive_data),
+        .mem_resp_val(batch_receive_istream_val),
+        .mem_resp_rdy(batch_receive_istream_rdy)
+    );
+
+    mem_resp_64B_t resp_msg_64B;
     
     // batch receiver
     logic [511:0] from_mem_data; 
-
-    lab3_cache_CacheMemReceiver batch_receiver 
-    (
-        .clk (clk), 
-        .reset (reset), 
-
-        .istream_val (batch_receive_istream_val), 
-        .istream_rdy (batch_receive_istream_rdy), 
-        .cache_resp_msg (batch_receive_data), 
-        .start_receive (start_receive),
-    
-        .ostream_val (batch_receive_ostream_val), 
-        .ostream_rdy (batch_receive_ostream_rdy), 
-
-        .mem_data (from_mem_data)
-    );
+    assign from_mem_data = resp_msg_64B.data;
 
     assign darray_wdata_mem = from_mem_data;
 
