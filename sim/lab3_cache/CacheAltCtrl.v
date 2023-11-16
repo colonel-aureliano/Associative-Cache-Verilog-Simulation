@@ -70,6 +70,7 @@ module lab3_cache_CacheAltCtrl
     // batch receive request from memory: 
     output logic        batch_receive_ostream_rdy,
     input  logic        batch_receive_ostream_val,
+    output logic        start_receive,
 
     output logic        batch_send_addr_sel, 
 
@@ -280,6 +281,8 @@ module lab3_cache_CacheAltCtrl
             default:            cs( 0,    0,    0,     0,        0,       0,       0,    0,           0,     0,       0,    0,      0   );
         endcase
     end
+
+    assign start_receive = (state == WAIT_MEM);
 
     assign tarray0_wen = (state == WAIT_MEM) && (read_way == 0);
     assign tarray1_wen = (state == WAIT_MEM) && (read_way == 1);

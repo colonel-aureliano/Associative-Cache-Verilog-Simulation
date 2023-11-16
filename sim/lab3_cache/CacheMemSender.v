@@ -264,7 +264,7 @@ module lab3_cache_CacheMemSender_Control
     end
     else begin
         if ( state_reg == STATE_IDLE  || state_next == STATE_IDLE ) counter <= 5'd0; 
-        if ( state_next == STATE_SEND && state_reg != STATE_SEND ) begin 
+        if ( state_reg == STATE_SEND ) begin 
             incr_reg_en <= 1; 
             counter <= next_counter; 
         end else incr_reg_en <= 0; 
@@ -342,8 +342,8 @@ module lab3_cache_CacheMemSender_Control
             //                                  istream ostream reg     mux  
             //                                  rdy        val   en     sel  
             STATE_IDLE:                     cs( 1,         0,    0,   mux_x  , 1);
-            STATE_CALC: if ( counter == 0 ) cs( 0,         0,    1,   mux_inp, 0);
-                        else                cs( 0,         0,    1,   mux_reg, 0);
+            STATE_CALC: if ( counter == 0 ) cs( 0,         1,    1,   mux_inp, 0);
+                        else                cs( 0,         1,    1,   mux_reg, 0);
             STATE_SEND: if ( counter <= 1 ) cs( 0,         1,    0,   mux_inp, 0);
                         else                cs( 0,         1,    0,   mux_reg, 0);
             STATE_DONE:                     cs( 0,         0,   'x,   mux_x  , 0);

@@ -82,6 +82,7 @@ module lab3_cache_CacheAlt
   logic batch_receive_ostream_rdy; 
   logic batch_receive_ostream_val; 
   logic batch_send_addr_sel;
+  logic start_receive;
 
   mem_req_4B_t stored_req_msg;
 

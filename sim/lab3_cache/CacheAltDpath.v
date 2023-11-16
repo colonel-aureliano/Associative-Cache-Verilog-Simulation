@@ -73,6 +73,7 @@ module lab3_cache_CacheAltDpath
     output logic        batch_receive_istream_rdy,
     input  logic        batch_receive_ostream_rdy,
     output logic        batch_receive_ostream_val,
+    input  logic        start_receive,
 
     input  logic        batch_send_addr_sel,
     
@@ -355,6 +356,7 @@ module lab3_cache_CacheAltDpath
         .istream_val (batch_receive_istream_val), 
         .istream_rdy (batch_receive_istream_rdy), 
         .cache_resp_msg (batch_receive_data), 
+        .start_receive (start_receive),
     
         .ostream_val (batch_receive_ostream_val), 
         .ostream_rdy (batch_receive_ostream_rdy), 

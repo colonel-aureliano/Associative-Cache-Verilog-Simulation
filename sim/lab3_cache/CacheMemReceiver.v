@@ -19,6 +19,7 @@ module lab3_cache_CacheMemReceiver
     input  logic         istream_val,
     output logic         istream_rdy,
     input  mem_resp_4B_t cache_resp_msg,
+    input  logic         start_receive,
  
     output logic         ostream_val,
     input  logic         ostream_rdy,
@@ -136,6 +137,7 @@ module lab3_cache_CacheMemReceiver_Control
     // Dataflow signals
     input  logic        istream_val,
     output logic        istream_rdy,
+    input  logic         start_receive,
 
     output logic        ostream_val,
     input  logic        ostream_rdy,
@@ -156,18 +158,19 @@ module lab3_cache_CacheMemReceiver_Control
     localparam STATE_WAIT = 3'd1;
     localparam STATE_RECEIVE = 3'd2;
     localparam STATE_DONE = 3'd3; 
+    localparam STATE_IGNORE = 3'd4; 
 
     logic [2:0] state_reg;
     logic [2:0] state_next;
 
     always_ff @(posedge clk)
-    if ( reset || (cache_resp_type != `VC_MEM_RESP_MSG_TYPE_READ)) begin 
+    if ( reset ) begin 
         state_reg <= STATE_IDLE;
         counter <= 0; 
     end
     else begin
         if ( state_reg == STATE_IDLE) counter <= 5'd0; 
-        if ( state_next == STATE_RECEIVE ) counter <= next_counter; 
+        if ( state_next == STATE_RECEIVE || state_next == STATE_IGNORE ) counter <= next_counter; 
         state_reg <= state_next;
     end
 
@@ -182,25 +185,32 @@ module lab3_cache_CacheMemReceiver_Control
     always_comb begin 
         case ( state_reg ) 
             STATE_IDLE: begin 
-                if ( istream_val && istream_rdy ) begin 
+                if ( istream_val && !is_wr && start_receive ) begin 
                     state_next = STATE_RECEIVE;
+                end
+                else if ( istream_val && is_wr ) begin
+                    state_next = STATE_IGNORE;
                 end
                 else state_next = STATE_IDLE;
             end
             STATE_RECEIVE: begin 
-                if ( istream_rdy && istream_val && counter < 16) begin 
+                if ( istream_val && counter < 16) begin 
                     state_next = STATE_RECEIVE;
                 end
                 else if ( counter >= 16 ) state_next = STATE_DONE; 
                 else state_next = STATE_WAIT;
             end
             STATE_WAIT: begin 
-                if ( istream_val && istream_rdy ) state_next = STATE_RECEIVE; 
+                if ( istream_val ) state_next = STATE_RECEIVE; 
                 else state_next = STATE_WAIT;
             end 
             STATE_DONE:
-                if ( ostream_rdy && ostream_val ) state_next = STATE_IDLE;   
+                if ( ostream_rdy ) state_next = STATE_IDLE;   
                 else state_next = STATE_DONE;
+            STATE_IGNORE:
+                if ( istream_val && counter < 16 && is_wr ) state_next = STATE_IGNORE;
+                else if ( counter >= 16 || !is_wr ) state_next = STATE_IDLE;
+                else state_next = STATE_WAIT;
             default: state_next = STATE_IDLE;
         endcase
     end
@@ -208,6 +218,9 @@ module lab3_cache_CacheMemReceiver_Control
     //===================================================================
     //                      State Outputs
     //===================================================================
+    logic is_wr;  // is write response
+    assign is_wr = (cache_resp_type == `VC_MEM_RESP_MSG_TYPE_WRITE);
+    
     localparam mux_add  = 1'b1; 
     localparam mux_zero = 1'b0; 
     localparam mux_x    = 1'bx; 
@@ -238,8 +251,9 @@ module lab3_cache_CacheMemReceiver_Control
             //                                  rdy        val  en    sel       en      sel
             STATE_IDLE:                     cs( 1,         0,    1,   mux_zero, 1,      mux_zero);
             STATE_RECEIVE:                  cs( 1,         0,    1,   mux_add,  1,      mux_add );
-            STATE_WAIT:                     cs( 1,         0,    0,   mux_x,    0,      mux_x   );
+            STATE_WAIT:                     cs( 0,         0,    0,   mux_x,    0,      mux_x   );
             STATE_DONE:                     cs( 0,         1,    0,   mux_x,    0,      mux_x   );
+            STATE_IGNORE:                   cs( 1,         0,    0,   mux_zero, 0,      mux_zero);
             default:                        cs('x,        'x,   'x,   mux_x,    0,      mux_x   );
         endcase
 

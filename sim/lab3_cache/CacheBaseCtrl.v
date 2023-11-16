@@ -270,8 +270,8 @@ module lab3_cache_CacheBaseCtrl
             refill_req:                                cs( 0,       0,    0,       1,         1,      0,     0,    0,    0,           0);
             refill_req_done:                           cs( 0,       0,    0,       0,         1,      0,     0,    0,    0,           0);
             refill_resp_done:                          cs( 0,       0,    0,       0,         0,      0,     0,    0,    0,           0);
-            flushing:  if ( batch_send_istream_rdy )   cs( 1,       0,    1,   is_dirty_0,    0,      1,     0,    1,    1,     flush_incr_sel);
-                       else                            cs( 0,       0,    1,   is_dirty_0,    0,      1,     0,    1,    0,     flush_incr_sel);
+            flushing:  if ( batch_send_istream_rdy )   cs( 1,       0,    1,   is_dirty_0,    1,      1,     0,    1,    1,     flush_incr_sel);
+                       else                            cs( 0,       0,    1,   is_dirty_0,    1,      1,     0,    1,    0,     flush_incr_sel);
             flush_fin:                                 cs( 0,       0,    1,       0,         0,      1,     1,    0,    0,           0);
             default:                                   cs('x,      'x,   'x,       0,         0,      0,     0,    0,    0,           0);
         endcase
