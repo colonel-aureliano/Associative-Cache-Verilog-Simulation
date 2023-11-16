@@ -99,19 +99,26 @@ module lab3_cache_CacheAltCtrl
 
     logic [2:0] state_next;
 
+    logic [5:0] flush_counter; 
+    logic [5:0] flush_counter_next; 
+    assign      flush_counter_next  = flush_counter + 1; 
+
     always_ff @(posedge clk) begin 
         if ( reset ) begin 
             state <= IDLE;
             stored_write_val <= 0;
+            flush_counter <= 0;
         end
         else begin
-            state <= state_next;
+            if (state == FLUSH && batch_send_istream_rdy) flush_counter <= flush_counter_next;
             if (memreq_val && state == IDLE && state_next == REFILL && do_write ) begin
                 stored_write_val <= 1;
             end
-            else if (state == IDLE && stored_write_val) begin
+            if (state == WRITE && stored_write_val) begin
                 stored_write_val <= 0;
             end
+            if (state == IDLE) flush_counter <= 0;
+            state <= state_next;
         end
     end
 
@@ -119,7 +126,9 @@ module lab3_cache_CacheAltCtrl
     localparam REFILL = 3'd1; 
     localparam WRITEBACK = 3'd2; 
     localparam FLUSH = 3'd3;
-    localparam WAIT = 3'd4; 
+    localparam WAIT_MEM = 3'd4; 
+    localparam WRITE = 3'd5;
+    localparam GIVE = 3'd6;
     
     // State Transitions
     always_comb begin
@@ -149,25 +158,39 @@ module lab3_cache_CacheAltCtrl
                     mru_wen = 1;
                     state_next = IDLE;
                 end
+                if ((tarray0_match || tarray1_match) && !memresp_rdy) begin
+                    state_next = GIVE;
+                end
             end
-            else if (inp_flush) begin
+            if (inp_flush) begin
                 state_next = FLUSH;
             end
         end
         else if (state == REFILL) begin
             if ( batch_send_istream_rdy ) begin 
-                state_next = WAIT; 
+                state_next = WAIT_MEM; 
             end 
             else begin 
                 state_next = REFILL; 
             end
         end
-        else if (state == WAIT) begin
+        else if (state == WAIT_MEM) begin
             if ( batch_receive_ostream_val ) begin 
-                state_next = IDLE; 
+                state_next = WRITE; 
             end 
             else begin 
-                state_next = WAIT;
+                state_next = WAIT_MEM;
+            end
+        end
+        else if (state == WRITE) begin
+            state_next = GIVE;
+        end
+        else if (state == GIVE) begin
+            if (memresp_rdy) begin
+                state_next = IDLE;
+            end
+            else begin
+                state_next = GIVE;
             end
         end
         else if (state == WRITEBACK) begin
@@ -178,18 +201,36 @@ module lab3_cache_CacheAltCtrl
                 state_next = WRITEBACK; 
             end
         end
+        else if (state == FLUSH) begin
+            read_way = w;
+            if ( flush_counter < 63) state_next = FLUSH; 
+            else state_next = IDLE;
+        end
     end
+
+    assign flush_done = state == FLUSH && state_next == IDLE;
 
     // ------------ State Output ------------
 
     logic          t; 
+    logic          t2;
     logic   do_write;
     assign do_write = memreq_val && stored_memreq_msg.type_[0:0];
     // stored_write_val is whether write miss occurred and after refilling
-    // we write into line
-    assign t = stored_write_val || (state == IDLE && state_next == IDLE && do_write); 
+    // we need to write into line
+    assign t = (state == IDLE && (state_next == IDLE || state_next == GIVE) && do_write); 
+    assign t2 = stored_write_val;
 
     assign memreq_rdy = (state == IDLE);
+
+    logic send_rdy;
+    assign send_rdy = batch_send_istream_rdy;
+
+    logic w;
+    assign w = flush_counter[5:5];
+
+    logic fis; // flush_incr_sel
+    assign fis = flush_counter != 0; 
 
     task cs
     (
@@ -202,7 +243,10 @@ module lab3_cache_CacheAltCtrl
         input cs_batch_send_addr_sel, 
         input cs_to_mem_tag_mux_sel,
         input cs_darray_wdata_mux_sel,
-        input cs_darray_write_word_en_mux_sel
+        input cs_darray_write_word_en_mux_sel,
+        input cs_index_mux_sel,
+        input cs_index_incr_reg_en,
+        input cs_idx_incr_mux_sel
     );
         begin
             darray_wen_0                = cs_darray_wen_0; 
@@ -215,26 +259,32 @@ module lab3_cache_CacheAltCtrl
             to_mem_tag_mux_sel          = cs_to_mem_tag_mux_sel;
             darray_wdata_mux_sel        = cs_darray_wdata_mux_sel;
             darray_write_word_en_mux_sel= cs_darray_write_word_en_mux_sel;
+            index_mux_sel               = cs_index_mux_sel;
+            index_incr_reg_en           = cs_index_incr_reg_en;
+            idx_incr_mux_sel            = cs_idx_incr_mux_sel;
         end
     endtask
 
     always_comb begin
         case ( state )
-            //                               send      send     receive  send  mem          darray darray
-            //           data   dirty dirty  istream   istream  ostream  addr  tag          write  word en 
-            //           wen    wen   wdata  rw        val      rdy      sel   sel          sel    sel 
-            IDLE:     cs( t,    t,    t,     0,        0,       0,       0,    0,           0,     0  );
-            WRITEBACK:cs( 0,    1,    0,     1,        1,       0,       1,    way_victim,  0,     0  );
-            REFILL:   cs( 0,    0,    0,     0,        1,       0,       0,    0,           0,     0  );
-            WAIT:     cs( 1,    0,    0,     0,        0,       1,       0,    0,           1,     1  );
-            default:  cs( 0,    0,    0,     0,        0,       0,       0,    0,           0,     0  );
+            //                                         send      send     receive  send  mem          darray darray   idx   idx     idx
+            //                      data   dirty dirty istream   istream  ostream  addr  tag          write  word en  mux   incr    incr
+            //                      wen    wen   wdata rw        val      rdy      sel   sel          sel    sel      sel   reg en  sel
+            IDLE:               cs( t,    t,    t,     0,        0,       0,       0,    0,           0,     0,       0,    0,      0   );
+            WRITEBACK:          cs( 0,    1,    0,     1,        1,       0,       1,    way_victim,  0,     0,       0,    0,      0   );
+            REFILL:             cs( 0,    0,    0,     0,        1,       0,       0,    0,           0,     0,       0,    0,      0   );
+            WAIT_MEM:           cs( 1,    0,    0,     0,        0,       1,       0,    0,           1,     1,       0,    0,      0   );
+            WRITE:              cs( t2,   t2,   t2,    0,        0,       0,       0,    0,           0,     0,       0,    0,      0   );
+            FLUSH: if(send_rdy) cs( 0,    1,    0,     1,        is_dirty,0,       1,    w,           0,     0,       1,    1,      fis   );
+                   else         cs( 0,    0,    0,     1,        is_dirty,0,       1,    w,           0,     0,       1,    0,      fis   );
+            default:            cs( 0,    0,    0,     0,        0,       0,       0,    0,           0,     0,       0,    0,      0   );
         endcase
     end
 
-    assign tarray0_wen = (state == WAIT) && (read_way == 0);
-    assign tarray1_wen = (state == WAIT) && (read_way == 1);
+    assign tarray0_wen = (state == WAIT_MEM) && (read_way == 0);
+    assign tarray1_wen = (state == WAIT_MEM) && (read_way == 1);
     
-    assign memresp_val = (!stored_write_val) && (state == IDLE) && (tarray0_match || tarray1_match);
+    assign memresp_val = (state == IDLE || state == GIVE) && (tarray0_match || tarray1_match);
 
 endmodule
 
