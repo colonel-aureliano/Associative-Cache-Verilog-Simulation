@@ -198,6 +198,8 @@ module lab3_cache_Dma
                     // state transition
                     state_next = STATE_IDLE;
                 end
+                if (cache_resp_msg.type_ == 1) state_next = STATE_IDLE;
+
             end
             default: begin
                 state_next = STATE_IDLE;
