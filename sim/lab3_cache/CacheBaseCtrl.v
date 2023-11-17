@@ -185,9 +185,7 @@ module lab3_cache_CacheBaseCtrl
                 req_state_next = evict_req; 
             end else if ( !tarray_match ) begin 
                 req_state_next = refill_req; 
-            end else if ( !memresp_rdy) begin 
-                // if valid and no request and response is not valid, then we want to stall it but also want to have it immediately available
-                req_state_next = refill_resp_done; 
+            end 
             end else begin 
                 req_state_next = no_request; 
             end
