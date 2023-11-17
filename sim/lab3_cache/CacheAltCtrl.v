@@ -94,7 +94,6 @@ module lab3_cache_CacheAltCtrl
     assign index_incr_reg_en = (state == FLUSH);
     assign idx_incr_mux_sel = (state == FLUSH);
 
-    // logic       mru; // most recently used
     logic       mru_next;
     logic       way_victim;
     assign way_victim = !mru;
@@ -139,7 +138,7 @@ module lab3_cache_CacheAltCtrl
     always_comb begin
         state_next = IDLE; 
         read_way = way_victim;
-        mru_next = mru;
+        mru_next = way_victim;
         mru_wen = 0;
         valid_wen0 = 0;
         valid_wen1 = 0;
@@ -219,6 +218,7 @@ module lab3_cache_CacheAltCtrl
         else if (state == FLUSH) begin
             read_way = w;
             if ( flush_counter < 63) state_next = FLUSH; 
+            else if (!batch_send_istream_rdy) state_next = FLUSH; 
             else state_next = IDLE;
         end
     end
@@ -236,7 +236,7 @@ module lab3_cache_CacheAltCtrl
     assign t = (state == IDLE && (state_next == IDLE || state_next == GIVE) && do_write); 
     assign t2 = stored_write_val;
 
-    assign memreq_rdy = (state == IDLE);
+    assign memreq_rdy = (state == IDLE && !inp_flush);
 
     logic send_rdy;
     assign send_rdy = batch_send_istream_rdy;
