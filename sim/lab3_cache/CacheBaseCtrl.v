@@ -186,7 +186,7 @@ module lab3_cache_CacheBaseCtrl
             end else if ( !tarray_match ) begin 
                 req_state_next = refill_req; 
             end 
-            end else begin 
+            else begin 
                 req_state_next = no_request; 
             end
         end else if ( req_state == flushing ) begin 
