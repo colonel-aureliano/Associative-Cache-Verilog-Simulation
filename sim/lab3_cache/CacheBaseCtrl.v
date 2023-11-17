@@ -186,6 +186,9 @@ module lab3_cache_CacheBaseCtrl
             end else if ( !tarray_match ) begin 
                 req_state_next = refill_req; 
             end 
+            else if (tarray_match && !memresp_rdy) begin
+                req_state_next = refill_resp_done;
+            end
             else begin 
                 req_state_next = no_request; 
             end
@@ -279,7 +282,7 @@ module lab3_cache_CacheBaseCtrl
 
     end
 
-    assign stall = req_state != no_request || (val && ( memreq_val && !memresp_rdy )); 
+    assign stall = req_state != no_request ; 
 
     //----------------------------------------------------------------------
     // Write to data array / Send response

@@ -33,6 +33,7 @@ lw    x1,   0(x13)
 lw    x1,   0(x14)
 lw    x1,   0(x15)
 lw    x1,   0(x16)
+csrr  x1, mngr2proc < 0x2040  # tag: 4, index: 1, offset: 0
 lw    x31,  0(x1)
 lw    x1,   0(x2)
 lw    x1,   0(x3)
@@ -55,7 +56,7 @@ sw    x1,  0(x5)
 sw    x31, 4(x5)
 
     .data
-    .offset  0x2040
+    .offset  0x2000
     .word 16807     
     .word 1622650073
     .word 1144108930
@@ -257,5 +258,3 @@ sw    x31, 4(x5)
     .word 992663534 
     .word 1358796011
     .word 1771024152
-    .offset  0x2800
-
