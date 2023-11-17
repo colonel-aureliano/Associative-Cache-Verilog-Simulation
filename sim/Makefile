@@ -94,7 +94,7 @@ export VERILATOR_ROOT
 	VERILATOR = $(VERILATOR_ROOT)/bin/verilator
 	VERILATOR_COVERAGE = $(VERILATOR_ROOT)/bin/verilator_coverage
 endif
-VERSION= 2.3 
+VERSION= 2.4 
 
 VERILATOR_FLAGS =
 VERILATOR_FLAGS += -cc --exe
@@ -434,12 +434,13 @@ ub_%.v.sim utb_%.v.sim tb_%.v.sim: FORCE  check-setup
 coverage-report: FORCE check-setup
 	@echo
 	@echo "-- COVERAGE ----------------"
-
-	$(VERILATOR_COVERAGE) --annotate-min 1 --annotate-all --annotate logs/annotated logs/*.dat --write-info logs/coverage.info
-
+  
+	for res in $(wildcard logs/*.dat) ; do  \
+		$(VERILATOR_COVERAGE) -write-info $$res.info $$res  ;\
+	done;
 	@echo
 	@echo "-- GENHTML --------------------"
-	$(GENHTML) logs/coverage.info --output-directory logs/$(COVERAGE)/html
+	$(GENHTML) logs/*.info --output-directory logs/$(COVERAGE)/html
 
 lab1_exist=$(wildcard lab1_imul/.)
 lab2_exist=$(wildcard lab2_proc/.)
