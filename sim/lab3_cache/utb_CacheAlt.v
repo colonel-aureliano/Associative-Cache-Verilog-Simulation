@@ -59,6 +59,8 @@ module top(  input logic clk, input logic linetrace );
 
     logic [511:0] expected;
     logic [31:0] holder; 
+    logic [20:0] tag_base;
+
     initial begin
 
         $display("Start of Testbench");
@@ -82,45 +84,11 @@ module top(  input logic clk, input logic linetrace );
         memreq_val = 1; 
         memreq_msg = {3'd0, 8'd0, 21'd15, 5'd2, 4'd1, 2'd00, 2'd0, 32'hDEADBEEF}; // read request with tag 15, index 2, and offset 1
         
-        cache_req_rdy = 1; 
-        
-        cache_resp_val = 0; 
+        refill({21'd15, 5'd2, 6'd0});
 
-        for (integer i = 0; i < 16; i++) begin 
-            // should get 16 write requests to the memory 
+        assertion512("new data", {32'h0,32'h1,32'h2,32'h3,32'h4,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[34]); 
 
-            cache_req_rdy = 1; 
-            @(negedge clk);
-            while ( !cache_req_val ) @(negedge clk); 
-
-            cache_req_rdy = 0; 
-            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
-            @(negedge clk); 
-        end
-
-        @(negedge clk); 
-        @(negedge clk); 
-        memreq_val = 0; 
-        memresp_rdy = 0; 
-        for (integer i = 0; i < 16; i++) begin 
-            // writing in value for the refill
-            assign holder = i; 
-            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
-            cache_resp_val = 1; 
-            
-            @(negedge clk); 
-            while ( !cache_resp_rdy ) @(negedge clk); 
-
-            cache_resp_val = 0; 
-            @(negedge clk);
-        end
-        memresp_rdy = 1; 
-
-        while (!memresp_val) @(negedge clk); 
-
-        assertion512("new data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'h3,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[34]); 
-
-        assertion("mem resp output ", 32'd1, memresp_msg.data);
+        assertion("mem resp output ", 32'he, memresp_msg.data);
         
         @(negedge clk); 
 
@@ -137,7 +105,7 @@ module top(  input logic clk, input logic linetrace );
         @(negedge clk);
         memresp_rdy = 1; 
         #1;
-        assertion512("read data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'h3,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[34]); 
+        assertion512("read data", {32'h0,32'h1,32'h2,32'h3,32'h4,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[34]); 
         assertion("assert same cycle valid", 32'd1, {31'd0, memresp_val});
         @(negedge clk);
         
@@ -152,7 +120,7 @@ module top(  input logic clk, input logic linetrace );
         #0.5; 
         assertion("assert same cycle valid", 32'd1, {31'd0, memresp_val}); 
         @(negedge clk);
-        assertion512("new data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'hDEADBEEF,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[34]); 
+        assertion512("new data", {32'h0,32'h1,32'h2,32'h3,32'h4,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hDEADBEEF,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[34]); 
 
         assertion("dirty way 1", 32'd1, {31'd0, DUT.dpath.dirty_array.rfile[34]}); 
         assertion("dirty way 0", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[2]}); 
@@ -162,7 +130,7 @@ module top(  input logic clk, input logic linetrace );
         @(negedge clk);
 
         // ====================================================================
-        //          write on mismatching tag, evict, refill, make dirty
+        //          write on mismatching tag, use other way
         // ====================================================================
         // write request with tag 7, index 2, and offset 3
         $display("========================Test 4: tag 7, index 2, and offset 5===================");
@@ -171,55 +139,9 @@ module top(  input logic clk, input logic linetrace );
 
         memreq_val = 1; 
         memreq_msg = {`VC_MEM_RESP_MSG_TYPE_WRITE, 8'd0, 21'd7, 5'd2, 4'd5, 2'd00, 2'd0, 32'hDEADBEEF}; // write request with tag 7, index 2, and offset 3
-            
-        // should geet 16 read reqeusts to the memory 
-        cache_req_rdy = 0; 
-        holder = {21'd7, 5'd2, 6'd0}; 
-        for (integer i = 0; i < 16; i++) begin 
-            $display("iteration: %d", i);
-            @(negedge clk);
-            while ( !cache_req_val ) @(negedge clk); 
-            
-            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
-            assertion("read addr: ", holder + i * 4, cache_req_msg.addr);
-            cache_req_rdy = 1; 
-            @(negedge clk); 
-        end
-
-
-        @(negedge clk); 
-        @(negedge clk); 
-        for( integer i = 0; i < 16; i++ ) begin 
-            // giving in 16 write responses
-            // should be ignored by receiver
-
-            cache_resp_msg = {3'd1, 8'd0, 2'd0, 2'd0, 32'd0};
-            cache_resp_val = 1; 
-            @(negedge clk); 
-            assertion( "the receiver should remain rdy", 32'd1, {31'd0,cache_resp_rdy} );
-            // while ( !cache_resp_rdy ) @(negedge clk); 
-            cache_resp_val = 0; 
-            @(negedge clk);
-        end
-
-
-        for (integer i = 0; i < 16; i++) begin 
-            // giving in 16 read response value for the refill
-            holder = 32'hF - i; 
-            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
-            cache_resp_val = 1; 
-            
-            @(negedge clk); 
-            while ( !cache_resp_rdy ) @(negedge clk); 
-
-            cache_resp_val = 0; 
-            @(negedge clk);
-        end
-
-        @(negedge clk); 
-        assertion512("new data", {32'h0,32'h1,32'h2,32'h3,32'h4,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[2]); 
         
-        while ( !memresp_val ) @(negedge clk); 
+        refill({21'd7, 5'd2, 6'd0});
+
         @(negedge clk);
         assertion512("new data from write", {32'h0,32'h1,32'h2,32'h3,32'h4,32'h5,32'h6,32'h7,32'h8,32'h9,32'hDEADBEEF,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[2]); 
         assertion("tag", {11'd0, 21'd7}, {11'd0, DUT.dpath.tag_array0.rfile[2]});
@@ -252,37 +174,30 @@ module top(  input logic clk, input logic linetrace );
         assertion("tagmatch way1 ", 32'd0, {31'd0, DUT.dpath.tarray1_match}); 
         
         assign holder = {21'd15, 5'd2, 6'd0}; 
-        cache_req_rdy = 0; 
+        cache_req_rdy = 1; 
 
         // should get 16 read reqeusts to the memory , no write
-        cache_req_rdy = 0; 
-        holder = {21'd9, 5'd5, 6'd0}; 
+        cache_resp_val = 0; 
         for (integer i = 0; i < 16; i++) begin 
             $display("iteration: %d", i);
             @(negedge clk);
+            cache_req_rdy = 1; 
             while ( !cache_req_val ) @(negedge clk); 
             
             assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
-            assertion("read addr: ", holder + i * 4, cache_req_msg.addr);
-            cache_req_rdy = 1; 
+            assertion("read addr: ", {21'd9, 5'd5, 6'd0} + i * 4, cache_req_msg.addr);
             @(negedge clk); 
-        end
+            cache_req_rdy = 0; 
 
-        memreq_val = 0; 
-        @(negedge clk); 
-        @(negedge clk); 
-        for (integer i = 0; i < 16; i++) begin 
-            // giving in 16 read response value for the refill
             holder = 32'hF - i; 
             cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
             cache_resp_val = 1; 
             
-            @(negedge clk); 
             while ( !cache_resp_rdy ) @(negedge clk); 
-
-            cache_resp_val = 0; 
-            @(negedge clk);
+            
         end
+
+        memreq_val = 0; 
 
         while ( !memresp_val ) @(negedge clk); 
 
@@ -317,22 +232,7 @@ module top(  input logic clk, input logic linetrace );
         
         cache_req_rdy = 1; 
 
-        // for ( integer i = 0; i < 100; i++ ) @(negedge clk); 
-        for (integer i = 0; i < 16; i++) begin 
-            // should get 16 write requests to the memory 
-            $display("iteration: %d", i);
-
-            @(negedge clk);
-            $display("state: %d", DUT.ctrl.state);
-
-            while ( !cache_req_val ) @(negedge clk); 
-            
-            assertion("is write request", {29'd0, `VC_MEM_REQ_MSG_TYPE_WRITE}, {29'd0, cache_req_msg.type_});
-            assertion("write addr: ", holder + i * 4, cache_req_msg.addr);
-            
-            cache_req_rdy = 1; 
-            @(negedge clk); 
-        end 
+        writeback({21'd7, 5'd2, 6'd0});
 
         assign holder = {21'd15, 5'd2, 6'd0}; 
         for (integer i = 0; i < 16; i++) begin 
@@ -454,8 +354,209 @@ module top(  input logic clk, input logic linetrace );
 
         @(negedge clk);
 
+        // ====================================================================
+        //          read hit on matching tag
+        // ====================================================================
+        // write request with tag 7, index 2, and offset 3
+        $display("========================Test 9: tag 7, index 2, and offset 5===================");
+
+        memresp_rdy = 1;
+
+        memreq_val = 1; 
+        memreq_msg = {`VC_MEM_RESP_MSG_TYPE_READ, 8'd0, 21'd7, 5'd2, 4'd5, 2'd00, 2'd0, 32'hDEADBEEF}; // write request with tag 7, index 2, and offset 3
+        
+        @(negedge clk);
+        assertion("tagmatch way0", 32'd1, {31'd0, DUT.dpath.tarray0_match}); 
+
+        memresp_rdy = 1; 
+        memreq_val = 0; 
+        @(negedge clk);
+
+        $display("========================Test 10: tag 15, index 2, and offset 5===================");
+
+        memresp_rdy = 1;
+
+        memreq_val = 1; 
+        memreq_msg = {`VC_MEM_RESP_MSG_TYPE_READ, 8'd0, 21'd15, 5'd2, 4'd5, 2'd00, 2'd0, 32'hDEADBEEF}; // write request with tag 7, index 2, and offset 3
+        
+        @(negedge clk);
+        assertion("tagmatch way1", 32'd1, {31'd0, DUT.dpath.tarray1_match}); 
+
+        memresp_rdy = 1; 
+        memreq_val = 0; 
+        @(negedge clk);
+
+        // ====================================================================
+        //            read miss, writeback
+        // ====================================================================
+        $display("========================Test 11: tag 20, index 2, and offset 5===================");
+        memresp_rdy = 1;
+
+        memreq_val = 1; 
+        memreq_msg = {`VC_MEM_RESP_MSG_TYPE_READ, 8'd0, 21'd20, 5'd2, 4'd5, 2'd00, 2'd0, 32'hDEADBEEF}; // write request with tag 7, index 2, and offset 3
+        @(negedge clk);
+        assertion("tagmatch way0", 32'd0, {31'd0, DUT.dpath.tarray0_match}); 
+        assertion("tagmatch way1", 32'd0, {31'd0, DUT.dpath.tarray1_match}); 
+        
+        writeback({21'd7, 5'd2, 6'd0});
+
+        $display(DUT.dpath.dma.state);
+        $display(DUT.ctrl.state);
+        $display(DUT.dpath.dma.counter);
+
+        refill({21'd20, 5'd2, 6'd0});
+
+        @(negedge clk);
+
+        $display("========================Test 12: tag 20, index 6, and offset 5===================");
+        memresp_rdy = 1;
+
+        memreq_val = 1; 
+        memreq_msg = {`VC_MEM_RESP_MSG_TYPE_READ, 8'd0, 21'd20, 5'd6, 4'd5, 2'd00, 2'd0, 32'hDEADBEEF}; // write request with tag 7, index 2, and offset 3
+        @(negedge clk);
+        assertion("tagmatch way0", 32'd0, {31'd0, DUT.dpath.tarray0_match}); 
+        assertion("tagmatch way1", 32'd0, {31'd0, DUT.dpath.tarray1_match}); 
+    
+        refill({21'd20, 5'd6, 6'd0});
+
+        @(negedge clk);
+        flush      = 1; 
+        cache_req_rdy = 1; 
+        cache_resp_val = 1; 
+        @(negedge clk);
+        flush      = 0; 
+        while ( !flush_done ) @(negedge clk);
+
+        while (! memreq_rdy ) @(negedge clk);
+        reset = 1;
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        reset = 0;
+        @(negedge clk);
+        read_top_lines();
+        read_top_lines();
+
+        // $display("====================test===================");
+        // memresp_rdy = 1;
+
+        // memreq_val = 1; 
+        // memreq_msg = {`VC_MEM_RESP_MSG_TYPE_WRITE, 8'd0, 21'd1, 5'd0, 4'd10, 2'd00, 2'd0, 32'hDEADBEEF};
+        // @(negedge clk);
+        // assertion("tagmatch", 32'd1, {31'd0, DUT.dpath.tarray1_match}); 
+        
+        // @(negedge clk);
+        // memreq_msg = {`VC_MEM_RESP_MSG_TYPE_WRITE, 8'd0, 21'd2, 5'd0, 4'd10, 2'd00, 2'd0, 32'hDEADBEEF};
+        // @(negedge clk);
+        // assertion("tagmatch", 32'd1, {31'd0, DUT.dpath.tarray0_match}); 
+
+        // memreq_msg = {`VC_MEM_RESP_MSG_TYPE_READ, 8'd0, 21'd30, 5'd0, 4'd10, 2'd00, 2'd0, 32'hDEADBEEF};
+        // @(negedge clk);
+        // assertion("tagmatch way0", 32'd0, {31'd0, DUT.dpath.tarray0_match}); 
+        // assertion("tagmatch way1", 32'd0, {31'd0, DUT.dpath.tarray1_match}); 
+        // $display(DUT.dpath.dma.state);
+        // writeback_no_check();
+        // $display("here");
+        // $display(DUT.dpath.dma.state);
+        // refill({21'd30, 5'd0, 6'd0});
+
         $finish();
     end
+
+    integer no = 13;
+
+    task read_top_lines();
+        logic [4:0] index_incr;
+        index_incr = 0;
+
+        for (integer i = 0; i < 3; i++) begin
+            $display("========================Test %d: tag %d, index %d, and offset 5 way 0===================",no+i,i,i);
+            memresp_rdy = 1;
+            memreq_val = 1; 
+            memreq_msg = {`VC_MEM_RESP_MSG_TYPE_READ, 8'd0, 21'd1, index_incr, 4'd5, 2'd00, 2'd0, 32'hDEADBEEF};
+            @(negedge clk);
+
+            refill({21'd1, index_incr, 6'd0});
+            memreq_val = 0; 
+            @(negedge clk);
+            $display("========================Test %d: tag %d, index %d, and offset 5 way 1===================",no+i,i,i);
+            memresp_rdy = 1;
+
+            memreq_val = 1; 
+            memreq_msg = {`VC_MEM_RESP_MSG_TYPE_READ, 8'd0, 21'd2, index_incr, 4'd5, 2'd00, 2'd0, 32'hDEADBEEF};
+            @(negedge clk);
+
+            refill({21'd2, index_incr, 6'd0});
+
+            index_incr = index_incr + 1;
+
+            @(negedge clk);
+        end
+        memreq_val = 0; 
+        no = no + 3;
+    endtask
+
+    task writeback_no_check();
+        while ( !DUT.batch_send_istream_rdy ) @(negedge clk); 
+        cache_req_rdy = 1; 
+        for (integer i = 0; i < 16; i++) begin 
+            // should get 16 write requests to the memory 
+            $display("iteration: %d", i);
+            @(negedge clk);
+            while ( !cache_req_val ) @(negedge clk); 
+            cache_resp_val = 1; 
+            cache_req_rdy = 1; 
+            @(negedge clk); 
+        end 
+    endtask
+
+    task writeback([31:0] expected_addr);
+        while ( !DUT.batch_send_istream_rdy ) @(negedge clk); 
+        cache_req_rdy = 1; 
+
+        for (integer i = 0; i < 16; i++) begin 
+            // should get 16 write requests to the memory 
+            $display("iteration: %d", i);
+
+            @(negedge clk);
+            while ( !cache_req_val ) @(negedge clk); 
+
+            cache_resp_val = 1; 
+            assertion("is write request", {29'd0, `VC_MEM_REQ_MSG_TYPE_WRITE}, {29'd0, cache_req_msg.type_});
+            assertion("write addr: ", expected_addr + i * 4, cache_req_msg.addr);
+            
+            cache_req_rdy = 1; 
+            @(negedge clk); 
+        end 
+    endtask
+
+    task refill([31:0] expected_addr);
+        while ( !DUT.batch_send_istream_rdy ) @(negedge clk); 
+        cache_req_rdy = 1; 
+        
+        cache_resp_val = 0; 
+
+        for (integer i = 0; i < 16; i++) begin 
+            @(negedge clk); 
+            cache_req_rdy = 1;
+            while ( !cache_req_val ) @(negedge clk); 
+            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
+            assertion("read addr: ", expected_addr + i * 4, cache_req_msg.addr);
+
+            @(negedge clk); 
+            cache_req_rdy = 0; 
+
+            assign holder = 32'hF-i; 
+            cache_resp_val = 1; 
+            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
+            while ( !cache_resp_rdy ) @(negedge clk); 
+        end
+
+        @(negedge clk); 
+        memresp_rdy = 1; 
+
+        while (!memresp_val) @(negedge clk); 
+    endtask
   
     task assertion( string varname, [31:0] expected, [31:0] actual ); 
         begin 
