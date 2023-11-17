@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# if [ "$3" = 'compile' ]
+# then 
+#     make clean
+# fi
+
+# make $1.hex
+# make $1.hex.diff DESIGN=$2 VCD=true
+
+compiled=false 
+
+for assembly in /Users/angelachao/Documents/Academics/Fall2023Notes/ece4750/ece4750-P3/sim/lab3_cache/asm/*
+do
+    fname=$(basename -- "$assembly") 
+    asmname="${fname%.*}" 
+
+    # # echo $asmname
+    # if [ compiled = false ] 
+    # then 
+    #     echo compiling
+    #     compiled=true 
+    #     make clean
+    # fi
+    
+    make $asmname.hex 
+    # make $asmname.hex.diff DESIGN=$1 VCD=true COVERAGE=coverage
+    make $asmname.hex.diff DESIGN=$1 VCD=true COVERAGE=coverage 1> /dev/null 2> /dev/null
+
+    echo $asmname
+
+    cat /Users/angelachao/Documents/Academics/Fall2023Notes/ece4750/ece4750-P3/sim/lab3_cache/results/$1.tb_Cache.v.$asmname.hex.txt
+    echo 
+done
+
+make utb_CacheAlt.v.sim VCD=true COVERAGE=coverage
+make utb_CacheBase.v.sim VCD=true COVERAGE=coverage
+make utb_DataArray.v.sim VCD=true COVERAGE=coverage
+make utb_dma.v.sim VCD=true COVERAGE=coverage

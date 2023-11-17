@@ -45,7 +45,6 @@ module lab3_cache_CacheBaseCtrl
     
     // dirty bit array logic 
     output logic        dirty_wen_0,
-    output logic        dirty_wdata_0,
     input  logic        is_dirty_0,
 
     // valid bit array
@@ -99,10 +98,8 @@ module lab3_cache_CacheBaseCtrl
     mem_req_4B_t request;
     always_ff @( posedge clk ) begin 
         if ( reset ) begin 
-            // val <= 1'b0; 
         end 
         else if ( req_reg_en ) begin 
-            // val <= next_val; 
             store_request <= memreq_msg; 
             store_val <= memreq_val; 
         end 
@@ -110,7 +107,7 @@ module lab3_cache_CacheBaseCtrl
         if ( req_state == no_request || req_state == flush_fin ) flush <= inp_flush; 
     end
     
-    always_comb begin 
+    always_comb begin                                                                   // this block shows to be not fully toggled but every branch is covered
         if ( req_state != no_request ) begin 
             request = store_request; 
             val = store_val; 
@@ -164,7 +161,6 @@ module lab3_cache_CacheBaseCtrl
             flush_counter <= 0; 
             store_val <= 0; 
         end else if (!flush) begin 
-            if (req_state_next == evict_req) dirty_wdata_0 <= 0; 
             req_state <= req_state_next; 
         end else begin 
             if ( req_state == flushing && batch_send_istream_rdy ) flush_counter <= flush_counter_next; 
@@ -197,15 +193,14 @@ module lab3_cache_CacheBaseCtrl
             if ( flush_counter < 31) req_state_next = flushing; 
             else req_state_next = flush_fin; 
         end else if ( req_state == flush_fin ) begin 
-            // $display(" possible no flush 1"); 
             if ( memresp_rdy ) req_state_next = no_request; 
             else req_state_next = flush_fin;
         end
         else if ( req_state == evict_req ) begin 
-            if ( batch_send_istream_rdy ) begin 
+            if ( batch_send_istream_rdy ) begin                     // this line shows to be not covered in coverage report, but every branch in it is covered
                 req_state_next = refill_req; 
             end 
-            else begin 
+            else begin                                              // this line shows to be not covered in coverage report, but every branch in it is covered
                 req_state_next = evict_req; 
             end
         end else if (req_state == refill_req) begin 
@@ -231,7 +226,6 @@ module lab3_cache_CacheBaseCtrl
     
     task cs
     (
-        // input cs_darray_wen_1;
         input cs_dirty_wen_0,
         input cs_dirty_wdata_0,
         input cs_batch_send_rw, 
@@ -245,9 +239,6 @@ module lab3_cache_CacheBaseCtrl
         input cs_idx_incr_mux_sel
     );
         begin
-            // dirty_wen_0               = cs_dirty_wen_0;
-            // dirty_wdata_0             = cs_dirty_wdata_0;
-            // darray_wen_1              = cs_darray_wen_1; 
             batch_send_rw             = cs_batch_send_rw;
             batch_send_istream_val    = cs_batch_send_istream_val;
             batch_receive_ostream_rdy = cs_batch_receive_ostream_rdy;
@@ -265,7 +256,7 @@ module lab3_cache_CacheBaseCtrl
     logic flush_incr_sel; 
     assign flush_incr_sel = flush_counter != 0; 
     always @(*) begin
-        case ( req_state )
+        case ( req_state ) 
             //                                                           send      send     receive  send         idx   idx          idx
             //                                            dirty   dirty istream   istream   ostream  addr  flush  mux   incr         incr
             //                                            wen0   wdata0   rw       val      rdy       sel   done  sel  reg en       mux sel
@@ -278,6 +269,7 @@ module lab3_cache_CacheBaseCtrl
                        else                            cs( 0,       0,    1,   is_dirty_0,    0,      1,     0,    1,    0,     flush_incr_sel);
             flush_fin:                                 cs( 0,       0,    1,       0,         0,      1,     1,    0,    0,           0);
             default:                                   cs('x,      'x,   'x,       0,         0,      0,     0,    0,    0,           0);
+            // this default line shows to be not covered in coverage report, but it should never be reached if our code is implemented correctly
         endcase
 
     end

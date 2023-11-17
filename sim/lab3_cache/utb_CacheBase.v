@@ -388,6 +388,142 @@ module top(  input logic clk, input logic linetrace );
 
         @(negedge clk);
 
+        // ==========================================================================
+        //                  read request,!tag_match, not dirty, refill, then read
+        // ==========================================================================
+        $display("========================tag 1, index 13, and offset 1===================");
+
+        memreq_val = 1; 
+        memreq_msg = {3'd0, 8'hFF, 21'd1, 5'd13, 4'd1, 2'd00, 2'd0, 32'hDEADBEEF}; // read request with tag 1, index 13, and offset 1
+        
+        cache_req_rdy = 1; 
+        
+        cache_resp_val = 0; 
+
+        for (integer i = 0; i < 16; i++) begin 
+            // should get 16 write requests to the memory 
+            @(negedge clk); 
+            cache_req_rdy = 1; 
+            while ( !cache_req_val ) @(negedge clk); 
+            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
+           
+            @(negedge clk); 
+            cache_req_rdy = 0; 
+
+            assign holder = i; 
+            cache_resp_val = 1; 
+            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
+            while ( !cache_resp_rdy ) @(negedge clk); 
+        end
+
+        @(negedge clk); 
+        memresp_rdy = 1; 
+
+        while (!memresp_val) @(negedge clk); 
+
+        assertion("same cycle val", 32'd1, {31'd0, memresp_val});
+        assertion512("new data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'h3,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[13]); 
+
+        assertion("mem resp output: ", 32'd1, memresp_msg.data);
+        
+        memresp_rdy = 1; 
+        @(negedge clk); 
+        
+        // ====================================================================
+        //          write on mismatching tag, refill, make dirty
+        // ====================================================================
+        // write request with tag 2, index 13, and offset 9
+        $display("========================write tag 1FFFFFF, index 31, and offset 15===================");
+
+        memresp_rdy = 1;
+
+        memreq_val = 1; 
+        memreq_msg = {3'b111, 8'hFF, 21'h1FFFFF, 5'd31, 4'd15, 2'd3, 2'd0, 32'hFFFFFFFF}; 
+        while ( !memreq_rdy ) @(negedge clk); 
+
+        @(negedge clk); 
+        assertion("dirty: ", 32'd0, {31'd0, DUT.dpath.is_dirty_0}); 
+        assertion("tagmatch: ", 32'd0, {31'd0, DUT.dpath.tarray_match}); 
+        
+        assign holder = {21'd15, 5'd2, 6'd0}; 
+        cache_req_rdy = 0; 
+
+        // should geet 16 read reqeusts to the memory , no write
+        cache_req_rdy = 1; 
+        for (integer i = 0; i < 16; i++) begin 
+            $display("iteration: %d", i);
+            @(negedge clk);
+            cache_req_rdy = 1; 
+            while ( !cache_req_val ) @(negedge clk); 
+            
+            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
+            assertion("read addr: ", {21'h1FFFFF, 5'd31, 6'd0} + i * 4, cache_req_msg.addr);
+            @(negedge clk); 
+            cache_req_rdy = 0; 
+
+            holder = 32'h0; 
+            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
+            cache_resp_val = 1; 
+            
+            while ( !cache_resp_rdy ) @(negedge clk); 
+
+        end
+        memreq_val = 0; 
+
+        @(negedge clk); 
+        @(negedge clk); 
+        assertion("same cycle val", 32'd1, {31'd0, memresp_val});
+        
+        @(negedge clk); 
+        assertion512("new data from write", {32'hFFFFFFFF,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0,32'h0}, DUT.dpath.data_array.rfile[31]); 
+        assertion("tag: ", {11'd0, 21'h1FFFFF}, {11'd0, DUT.dpath.tag_array.rfile[31]});
+        
+
+        memresp_rdy = 1; 
+
+        // ==========================================================================
+        //                  read request,!tag_match, not dirty, refill, then read
+        // ==========================================================================
+        $display("========================tag 0, index 0, and offset 0===================");
+
+        memreq_val = 1; 
+        memreq_msg = {3'd0, 8'd0, 21'd0, 5'd0, 4'd0, 2'd00, 2'd0, 32'h0}; // read request with tag 0, index 0, and offset 0
+        
+        cache_req_rdy = 1; 
+        
+        cache_resp_val = 0; 
+
+        for (integer i = 0; i < 16; i++) begin 
+            // should get 16 write requests to the memory 
+            @(negedge clk); 
+            cache_req_rdy = 1; 
+            while ( !cache_req_val ) @(negedge clk); 
+            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
+           
+            @(negedge clk); 
+            cache_req_rdy = 0; 
+
+            assign holder = 32'hFFFFFFFF; 
+            cache_resp_val = 1; 
+            cache_resp_msg = {3'b111, 8'hFF, 2'd3, 2'd3, holder};
+            while ( !cache_resp_rdy ) @(negedge clk); 
+        end
+
+        @(negedge clk); 
+        memresp_rdy = 1; 
+
+        while (!memresp_val) @(negedge clk); 
+
+        assertion("same cycle val", 32'd1, {31'd0, memresp_val});
+        assertion512("new data", {32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF,32'hFFFFFFFF}, DUT.dpath.data_array.rfile[0]); 
+
+        assertion("mem resp output: ", 32'hFFFFFFFF, memresp_msg.data);
+        
+        memresp_rdy = 1; 
+        @(negedge clk); 
+
+        @(negedge clk); 
+
         $finish();
     end
   

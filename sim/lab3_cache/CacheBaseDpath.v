@@ -44,7 +44,6 @@ module lab3_cache_CacheBaseDpath
     
     // dirty bit array logic 
     input  logic        dirty_wen_0,
-    input  logic        dirty_wdata_0,
     output logic        is_dirty_0,
 
     // valid bit array
@@ -57,7 +56,8 @@ module lab3_cache_CacheBaseDpath
     input  logic        batch_send_ostream_rdy,
     
     input  logic        batch_send_rw,
-    output mem_req_4B_t send_mem_req,
+    output mem_req_4B_t send_mem_req,               
+    // this above line shows to be not fully toggled because we do not encounter any situations that would toggle all bits in a mem_req
 
     // batch receive request from memory: 
     input  logic        batch_receive_istream_val,
@@ -79,12 +79,10 @@ module lab3_cache_CacheBaseDpath
 
     // output 
     output mem_resp_4B_t memresp_msg
-
 );
     logic [31:0] req_addr; 
     logic [31:0] req_data; 
     mem_req_4B_t req_msg; 
-
     mem_req_4B_t store_req; 
 
     vc_EnResetReg#(77) req_msg_reg
@@ -157,10 +155,8 @@ module lab3_cache_CacheBaseDpath
 
     logic [511:0] darray_rdata_1; 
 
-    // logic         darray_wen_0; 
     logic [511:0] darray_wdata_0; 
 
-    // logic         darray_wen_0; 
     logic [511:0] darray_wdata_1; 
 
     localparam write_word_en_all = 16'hFFFF;
@@ -198,8 +194,6 @@ module lab3_cache_CacheBaseDpath
 
     logic [20:0] tarray_rdata_1; 
 
-    logic [20:0] tarray_wdata_0; 
-
     
     // Want to read the tag at index cache line, and compare its tag to current tag
     // if the cache stored tag is not same as the request tag, it's a miss
@@ -220,7 +214,7 @@ module lab3_cache_CacheBaseDpath
         .write_addr0 (index),
         .write_data0 (tag),
 
-        .write_en1   (), // TODO: DOUBLE CHECK
+        .write_en1   (), 
         .write_addr1 (),
         .write_data1 ()
     );
@@ -237,7 +231,7 @@ module lab3_cache_CacheBaseDpath
     assign tarray_match = eqtag && is_valid;
 
     // ------------------ dirty bit array ----------------
-
+    localparam dirty_wdata_0 = 1'b0; 
     
     vc_Regfile_2r2w #(1, 32) dirty_array
     (

@@ -54,7 +54,7 @@ module lab3_cache_CacheBase
   logic tarray_wen_0; 
   logic tarray_match; 
   logic dirty_wen_0; 
-  logic dirty_wdata_0; 
+  // logic dirty_wdata_0; 
   logic is_dirty_0; 
   logic valid_wen;
   logic batch_send_istream_val; 
@@ -95,7 +95,7 @@ module lab3_cache_CacheBase
     .tarray_wen_0 (tarray_wen_0) , 
     .tarray_match (tarray_match) ,
     .dirty_wen_0 (dirty_wen_0) , 
-    .dirty_wdata_0 (dirty_wdata_0),  
+    // .dirty_wdata_0 (dirty_wdata_0),  
     .is_dirty_0 (is_dirty_0) ,
     .batch_send_istream_val (batch_send_istream_val), 
     .batch_send_istream_rdy (batch_send_istream_rdy), 
