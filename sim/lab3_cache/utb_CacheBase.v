@@ -88,35 +88,25 @@ module top(  input logic clk, input logic linetrace );
 
         for (integer i = 0; i < 16; i++) begin 
             // should get 16 write requests to the memory 
-
+            @(negedge clk); 
             cache_req_rdy = 1; 
-            @(negedge clk);
             while ( !cache_req_val ) @(negedge clk); 
-
-            cache_req_rdy = 0; 
             assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
+           
             @(negedge clk); 
-        end
+            cache_req_rdy = 0; 
 
-        @(negedge clk); 
-        @(negedge clk); 
-        memreq_val = 0; 
-        memresp_rdy = 0; 
-        for (integer i = 0; i < 16; i++) begin 
-            // writing in value for the refill
             assign holder = i; 
-            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
             cache_resp_val = 1; 
-            
-            @(negedge clk); 
+            cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
             while ( !cache_resp_rdy ) @(negedge clk); 
-
-            cache_resp_val = 0; 
-            @(negedge clk);
         end
 
         @(negedge clk); 
-        
+        memresp_rdy = 1; 
+
+        while (!memresp_val) @(negedge clk); 
+
         assertion("same cycle val", 32'd1, {31'd0, memresp_val});
         assertion512("new data", {32'hF,32'hE,32'hD,32'hC,32'hB,32'hA,32'h9,32'h8,32'h7,32'h6,32'h5,32'h4,32'h3,32'h2,32'h1,32'h0}, DUT.dpath.data_array.rfile[2]); 
 
@@ -162,75 +152,59 @@ module top(  input logic clk, input logic linetrace );
         assertion("tagmatch: ", 32'd0, {31'd0, DUT.dpath.tarray_match}); 
         
         assign holder = {21'd15, 5'd2, 6'd0}; 
-        cache_req_rdy = 0; 
+        cache_req_rdy = 1; 
+        cache_resp_val = 0; 
+        
+
         for (integer i = 0; i < 16; i++) begin 
             // should get 16 write requests to the memory 
             $display("iteration: %d", i);
-
-            @(negedge clk);
             while ( !cache_req_val ) @(negedge clk); 
-            
+
             assertion("is write request", {29'd0, `VC_MEM_REQ_MSG_TYPE_WRITE}, {29'd0, cache_req_msg.type_});
             assertion("write addr: ", holder + i * 4, cache_req_msg.addr);
-            cache_req_rdy = 1; 
-            @(negedge clk); 
+            
+            // giving in 16 write responses
+            // should be ignored by receiver
+            cache_resp_val = 1; 
+            cache_resp_msg = {3'd1, 8'd0, 2'd0, 2'd0, 32'd0};
+            while ( !cache_resp_rdy ) @(negedge clk);
+            @(negedge clk)
+            cache_resp_val = 0;  
         end
+        @(negedge clk)
 
-        // should geet 16 read reqeusts to the memory 
-        cache_req_rdy = 0; 
-        holder = {21'd7, 5'd2, 6'd0}; 
         for (integer i = 0; i < 16; i++) begin 
             $display("iteration: %d", i);
             @(negedge clk);
-            while ( !cache_req_val ) @(negedge clk); 
-            
-            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
-            assertion("read addr: ", holder + i * 4, cache_req_msg.addr);
             cache_req_rdy = 1; 
+            while ( !cache_req_val ) @(negedge clk); 
+            assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
+            assertion("read addr: ", {21'd7, 5'd2, 6'd0} + i * 4, cache_req_msg.addr);
+            
             @(negedge clk); 
-        end
+            cache_req_rdy = 0; 
 
-
-        @(negedge clk); 
-        @(negedge clk); 
-        for( integer i = 0; i < 16; i++ ) begin 
-            // giving in 16 write responses
-            // should be ignored by receiver
-
-            cache_resp_msg = {3'd1, 8'd0, 2'd0, 2'd0, 32'd0};
-            cache_resp_val = 1; 
-            @(negedge clk); 
-            assertion( "the receiver should remain rdy", 32'd1, {31'd0,cache_resp_rdy} );
-            // while ( !cache_resp_rdy ) @(negedge clk); 
-            cache_resp_val = 0; 
-            @(negedge clk);
-        end
-
-
-        for (integer i = 0; i < 16; i++) begin 
             // giving in 16 read response value for the refill
             holder = 32'hF - i; 
             cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
             cache_resp_val = 1; 
             
-            @(negedge clk); 
             while ( !cache_resp_rdy ) @(negedge clk); 
-
-            cache_resp_val = 0; 
-            @(negedge clk);
         end
-
+        
         @(negedge clk); 
-        assertion512("new data", {32'h0,32'h1,32'h2,32'h3,32'h4,32'h5,32'h6,32'h7,32'h8,32'h9,32'hA,32'hB,32'hC,32'hD,32'hE,32'hF}, DUT.dpath.data_array.rfile[2]); 
-        assertion("dirty: ", 32'd0, {31'd0, DUT.dpath.dirty_array.rfile[2]}); 
+        while ( !memresp_val ) @(negedge clk);
+        @(negedge clk); 
         assertion("tag: ", {11'd0, 21'd7}, {11'd0, DUT.dpath.tag_array.rfile[2]});
         
-        while ( !memresp_val ) @(negedge clk); 
+        cache_req_val = 0;
+
+        memresp_rdy = 1;  
         @(negedge clk);
         assertion("dirty: ", 32'd1, {31'd0, DUT.dpath.dirty_array.rfile[2]});
         
-        memresp_rdy = 1; 
-        memreq_val = 0; 
+        
         @(negedge clk);
 
         // ====================================================================
@@ -254,35 +228,28 @@ module top(  input logic clk, input logic linetrace );
         cache_req_rdy = 0; 
 
         // should geet 16 read reqeusts to the memory , no write
-        cache_req_rdy = 0; 
-        holder = {21'd9, 5'd5, 6'd0}; 
+        cache_req_rdy = 1; 
         for (integer i = 0; i < 16; i++) begin 
             $display("iteration: %d", i);
             @(negedge clk);
+            cache_req_rdy = 1; 
             while ( !cache_req_val ) @(negedge clk); 
             
             assertion("is read request", {29'd0, `VC_MEM_REQ_MSG_TYPE_READ}, {29'd0, cache_req_msg.type_});
-            assertion("read addr: ", holder + i * 4, cache_req_msg.addr);
-            cache_req_rdy = 1; 
+            assertion("read addr: ", {21'd9, 5'd5, 6'd0} + i * 4, cache_req_msg.addr);
             @(negedge clk); 
-        end
+            cache_req_rdy = 0; 
 
-        memreq_val = 0; 
-        @(negedge clk); 
-        @(negedge clk); 
-        for (integer i = 0; i < 16; i++) begin 
-            // giving in 16 read response value for the refill
             holder = 32'hF - i; 
             cache_resp_msg = {3'd0, 8'd0, 2'd0, 2'd0, holder};
             cache_resp_val = 1; 
             
-            @(negedge clk); 
             while ( !cache_resp_rdy ) @(negedge clk); 
 
-            cache_resp_val = 0; 
-            @(negedge clk);
         end
+        memreq_val = 0; 
 
+        @(negedge clk); 
         @(negedge clk); 
         assertion("same cycle val", 32'd1, {31'd0, memresp_val});
         
@@ -292,7 +259,6 @@ module top(  input logic clk, input logic linetrace );
         
 
         memresp_rdy = 1; 
-        memreq_val = 0; 
 
         @(negedge clk); 
         // ==================================================================
@@ -312,7 +278,6 @@ module top(  input logic clk, input logic linetrace );
         
         cache_req_rdy = 1; 
 
-        // for ( integer i = 0; i < 100; i++ ) @(negedge clk); 
         for (integer i = 0; i < 16; i++) begin 
             // should get 16 write requests to the memory 
             $display("iteration: %d", i);

@@ -287,7 +287,7 @@ module lab3_cache_CacheAltCtrl
             //                      wen    wen   wdata rw        val      rdy      sel   sel          sel    sel      sel   reg en  sel
             IDLE:               cs( t,    t,    t,     0,        0,       0,       0,    0,           0,     0,       0,    0,      0   );
             WRITEBACK:          cs( 0,    1,    0,     1,        1,       0,       1,    way_victim,  0,     0,       0,    0,      0   );
-            REFILL:             cs( 0,    0,    0,     0,        1,       0,       0,    0,           0,     0,       0,    0,      0   );
+            REFILL:             cs( 0,    0,    0,     0,        1,       1,       0,    0,           0,     0,       0,    0,      0   );
             WAIT_MEM:           cs( 1,    0,    0,     0,        0,       1,       0,    0,           1,     1,       0,    0,      0   );
             WRITE:              cs( t2,   t2,   t2,    0,        0,       0,       0,    0,           0,     0,       0,    0,      0   );
             FLUSH: if(send_rdy) cs( 0,    1,    0,     1,        is_dirty,1,       1,    w,           0,     0,       1,    1,      fis );

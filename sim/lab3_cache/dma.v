@@ -179,15 +179,15 @@ module lab3_cache_Dma
                     end else begin
                         // continue reading
                         state_next = STATE_MEM_SEND;
-                        // if ready in same cycle, then send request immediately
-                        if (mem_req_rdy) begin
-                            mem_req_val = 1;
-                            mem_req_msg.addr = locked_addr + counter*4;
-                            mem_req_msg.data = segmented_data[counter[3:0]];
-                            // state transition
-                            counter_next = counter + 1;
-                            state_next = STATE_MEM_WAIT;
-                        end
+                        // // if ready in same cycle, then send request immediately
+                        // if (mem_req_rdy) begin
+                        //     mem_req_val = 1;
+                        //     mem_req_msg.addr = locked_addr + counter*4;
+                        //     mem_req_msg.data = segmented_data[counter[3:0]];
+                        //     // state transition
+                        //     counter_next = counter + 1;
+                        //     state_next = STATE_MEM_WAIT;
+                        // end
                     end
                 end
             end

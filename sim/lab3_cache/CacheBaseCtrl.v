@@ -270,9 +270,9 @@ module lab3_cache_CacheBaseCtrl
             //                                            wen0   wdata0   rw       val      rdy       sel   done  sel  reg en       mux sel
             no_request:                                cs( 0,       0,    0,       0,         0,      0,     0,    0,    0,           0);
             evict_req:                                 cs( 1,       0,    1,       1,         0,      1,     0,    0,    0,           0);
-            refill_req:                                cs( 0,       0,    0,       1,         0,      0,     0,    0,    0,           0);
-            refill_req_done:                           cs( 0,       0,    0,       0,         1,      0,     0,    0,    0,           0);
-            refill_resp_done:                          cs( 0,       0,    0,       0,         0,      0,     0,    0,    0,           0);
+            refill_req:                                cs( 0,       0,    0,       1,         1,      0,     0,    0,    0,           0);
+            refill_req_done:                           cs( 0,       0,    0,       0,         0,      0,     0,    0,    0,           0);
+            refill_resp_done:                          cs( 0,       0,    0,       0,         1,      0,     0,    0,    0,           0);
             flushing:  if ( batch_send_istream_rdy )   cs( 1,       0,    1,   is_dirty_0,    1,      1,     0,    1,    1,     flush_incr_sel);
                        else                            cs( 0,       0,    1,   is_dirty_0,    1,      1,     0,    1,    0,     flush_incr_sel);
             flush_fin:                                 cs( 0,       0,    1,       0,         0,      1,     1,    0,    0,           0);
