@@ -114,7 +114,8 @@ module lab3_cache_CacheAltCtrl
             flush_counter <= 0;
         end
         else begin
-            if (state == FLUSH && batch_send_istream_rdy) flush_counter <= flush_counter_next;
+            if (state == FLUSH && (!is_dirty || (is_dirty && batch_send_istream_rdy))) 
+                flush_counter <= flush_counter_next;
             if (memreq_val && state == IDLE && state_next == REFILL && do_write ) begin
                 stored_write_val <= 1;
             end

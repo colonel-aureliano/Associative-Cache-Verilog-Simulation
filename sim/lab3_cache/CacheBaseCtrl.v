@@ -173,11 +173,12 @@ module lab3_cache_CacheBaseCtrl
     end 
 
     always_comb begin 
-        if ( val && req_state == no_request ) begin 
+        if (inp_flush && req_state == no_request ) begin 
+            req_state_next = flushing;
+        end 
+        else if ( val && req_state == no_request ) begin 
             // enter states 
-            if ( flush ) begin 
-                req_state_next = flushing; 
-            end else if ( !tarray_match && is_dirty_0 ) begin 
+            if ( !tarray_match && is_dirty_0 ) begin 
                 req_state_next = evict_req; 
             end else if ( !tarray_match ) begin 
                 req_state_next = refill_req; 
