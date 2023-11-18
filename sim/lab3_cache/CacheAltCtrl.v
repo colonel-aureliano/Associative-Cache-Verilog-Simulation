@@ -137,7 +137,9 @@ module lab3_cache_CacheAltCtrl
     
     // State Transitions
     always_comb begin
-        state_next = IDLE; 
+        state_next = IDLE;  // if these default states don't show as covered
+        // that's most likely a verilator bug because e.g. read_way = victim
+        // is always the case when we miss and need to refill
         read_way = way_victim;
         mru_next = way_victim;
         mru_wen = 0;
@@ -203,9 +205,13 @@ module lab3_cache_CacheAltCtrl
             end
             if (tarray0_match) begin
                 read_way = 1'b0;
+                mru_next = 1'b0;
+                mru_wen = 1;
             end
             else if (tarray1_match) begin
                 read_way = 1'b1;
+                mru_next = 1'b1;
+                mru_wen = 1;
             end
         end
         else if (state == WRITEBACK) begin
@@ -216,7 +222,8 @@ module lab3_cache_CacheAltCtrl
                 state_next = WRITEBACK; 
             end
         end
-        else if (state == FLUSH) begin
+        else if (state == FLUSH) begin // if not covered, most likely a verilator bug
+        // because we made sure to set flush at one point in utb
             read_way = w;
             if ( flush_counter < 63) state_next = FLUSH; 
             else if (!batch_send_istream_rdy) state_next = FLUSH; 

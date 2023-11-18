@@ -70,7 +70,8 @@ module lab3_cache_CacheAltDpath
     
     input  logic        to_mem_tag_mux_sel,
     input  logic        batch_send_rw,
-    output mem_req_4B_t send_mem_req,
+    output mem_req_4B_t send_mem_req, // toggle coverage not possible because we
+    // zeroed the last 6 bit of address before sending request to memory
 
     // batch receive request from memory
     input  logic        batch_receive_istream_val,
@@ -223,7 +224,8 @@ module lab3_cache_CacheAltDpath
 
     // --------------------- tag check Dpath ---------------------------
 
-    logic [20:0] tarray0_rdata; 
+    logic [20:0] tarray0_rdata; // if shows not covered, probably a bug because
+    // we made sure to toggle tags for way 0
     logic       is_valid0;
     logic       is_valid1;
     
