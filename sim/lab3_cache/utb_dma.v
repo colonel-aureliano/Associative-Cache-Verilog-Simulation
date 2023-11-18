@@ -198,10 +198,7 @@ module top(  input logic clk, input logic linetrace );
             $display("state is %d", DUT.state);
             while ( !batch_receive_istream_rdy ) @(negedge clk);
           end
-
-          #20;
-          @(negedge clk);
-          batch_receive_ostream_rdy = 1; 
+            batch_receive_ostream_rdy = 1; 
           while ( !batch_receive_ostream_val ) @(negedge clk); 
           assertion512("data", test_input, mem_data);
         end
